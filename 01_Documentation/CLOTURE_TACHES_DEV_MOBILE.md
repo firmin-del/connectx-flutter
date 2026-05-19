@@ -1,13 +1,11 @@
-# 🏁 Clôture des Tâches — Dev Mobile (SAMBIENI Firmin)
+Clôture des Tâches — Dev Mobile (SAMBIENI Firmin)
 > Projet NovaX — Clone WhatsApp Flutter  
 > Semaine Forge-IMeN — 18 au 23 Mai 2026  
 > Repo : https://github.com/firmin-del/connectx-flutter
 
----
+ 1. Bilan Global
 
-## 1. Bilan Global
-
-Toutes les tâches Dev Mobile du cahier des charges sont **implémentées**.  
+Toutes les tâches Dev Mobile du cahier des charges sont implémentées.  
 L'application Flutter est fonctionnelle, testable, et prête à être branchée sur les serveurs des autres filières.
 
 ```
@@ -16,11 +14,9 @@ L'application Flutter est fonctionnelle, testable, et prête à être branchée 
 Étape 03 ✅  Firebase FCM + E2EE + ChatCubit + Contacts + image_picker
 ```
 
----
+2. Historique Git Complet
 
-## 2. Historique Git Complet
 
-```
 bbb5a5a  feat: initial commit — NovaX base architecture (Etape 01)
 ac24bf4  feat(etape-02): Hive + SocketService + AuthService + Cubits complets
 5bbff8d  fix: suppression imports inutiles + desactivation db_definition obsolete
@@ -28,13 +24,11 @@ b37a5fe  fix: URL localhost pour web + LoginScreen avec vrais controllers
 d489ac6  docs: ajout resume complet etape 02
 42e526a  feat(etape-03): ChatCubit + ChatRepository + EncryptionService + NotificationService + ChatListScreen branche
 a7186b2  feat: contacts + image_picker dans ChatScreen — taches Dev Mobile completes
-```
 
----
 
-## 3. Structure Complète du Projet
+3. Structure Complète du Projet
 
-```
+
 lib/
 │
 ├── constants/
@@ -93,17 +87,13 @@ lib/
 │   └── app_colors.dart             → Palette de couleurs NovaX
 │
 └── main.dart                       → Point d'entrée + init Hive + providers
-```
 
----
 
-## 4. Explication Détaillée de Chaque Fichier
+4. Explication Détaillée de Chaque Fichier
 
----
+4.1. `constants/app_constants.dart`
 
-### 4.1. `constants/app_constants.dart`
-
-**Rôle :** Centralise toutes les constantes pour éviter les "magic strings".
+Rôle : Centralise toutes les constantes pour éviter les "magic strings".
 
 ```dart
 // URLs des serveurs
@@ -119,15 +109,15 @@ static const String messagesBox = "messages_box";
 static const String chatsBox    = "chats_box";
 ```
 
-**Pourquoi c'est important :** Si l'URL du serveur change, on modifie UNE seule ligne ici au lieu de chercher dans tout le code.
+Pourquoi c'est important : Si l'URL du serveur change, on modifie UNE seule ligne ici au lieu de chercher dans tout le code.
 
 ---
 
-### 4.2. `constants/api_config.dart`
+4.2. `constants/api_config.dart`
 
-**Rôle :** Configure le client HTTP Dio avec un intercepteur JWT automatique.
+Rôle : Configure le client HTTP Dio avec un intercepteur JWT automatique.
 
-**L'intercepteur JWT :**
+L'intercepteur JWT :
 ```dart
 onRequest: (options, handler) async {
   final token = prefs.getString(AppConstants.tokenKey);
@@ -138,23 +128,20 @@ onRequest: (options, handler) async {
   return handler.next(options);
 }
 ```
+Pourquoi c'est important : Sans ça, il faudrait ajouter le token manuellement à chaque appel API. L'intercepteur le fait automatiquement.
 
-**Pourquoi c'est important :** Sans ça, il faudrait ajouter le token manuellement à chaque appel API. L'intercepteur le fait automatiquement.
+4.3. `models/message_model.dart` + `message_model.g.dart`
 
----
+Rôle : Représente un message avec son statut de livraison.
 
-### 4.3. `models/message_model.dart` + `message_model.g.dart`
-
-**Rôle :** Représente un message avec son statut de livraison.
-
-**Annotations Hive :**
+Annotations Hive :
 ```dart
 @HiveType(typeId: 0)  // MessageModel — stocké dans Hive
 @HiveType(typeId: 1)  // MessageType (text, image, video, file, voice)
 @HiveType(typeId: 2)  // MessageStatus (sending, sent, delivered, read, failed)
 ```
 
-**Statuts de livraison (comme WhatsApp) :**
+Statuts de livraison (comme WhatsApp) :
 ```
 sending   → ⏳ En cours d'envoi (affiché immédiatement)
 sent      → ✓  Reçu par le serveur
@@ -163,19 +150,17 @@ read      → ✓✓ Lu (coches bleues)
 failed    → ✗  Échec d'envoi
 ```
 
-**`copyWith()` :** Crée une copie avec certains champs modifiés sans toucher à l'original (pattern immuable).
+`copyWith()` : Crée une copie avec certains champs modifiés sans toucher à l'original (pattern immuable).
 
----
+4.4. `models/chat_model.dart` + `chat_model.g.dart`
 
-### 4.4. `models/chat_model.dart` + `chat_model.g.dart`
-
-**Rôle :** Représente une conversation (privée ou groupe).
+Rôle : Représente une conversation (privée ou groupe).
 
 ```dart
 @HiveType(typeId: 3)  // ChatModel — stocké dans Hive
 ```
 
-**Méthodes utiles :**
+Méthodes utiles :
 ```dart
 // Retourne le nom à afficher selon le type de conversation
 chat.getDisplayName(currentUserId)
@@ -187,18 +172,16 @@ chat.lastMessagePreview
 // → "Salut, tu as vu le projet..."
 ```
 
----
+4.5. `services/hive_service.dart`
 
-### 4.5. `services/hive_service.dart`
+Rôle : Gère la base de données locale Hive.
 
-**Rôle :** Gère la base de données locale Hive.
-
-**Concept Hive :**
+Concept Hive :
 - Hive = base de données NoSQL locale (stockée sur l'appareil)
 - Organisée en "boîtes" (boxes) = comme des tables
 - Très rapide car tout est en mémoire + fichier binaire
 
-**Opérations disponibles :**
+Opérations disponibles :
 ```dart
 HiveService.saveMessage(message)              // Sauvegarder un message
 HiveService.getMessagesForChat(chatId)        // Lire les messages d'un chat
@@ -206,19 +189,17 @@ HiveService.updateMessageStatus(id, status)   // Mettre à jour le statut
 HiveService.deleteMessagesForChat(chatId)     // Supprimer une conversation
 ```
 
-**Pourquoi Hive et pas SQLite :**
+Pourquoi Hive et pas SQLite :
 - Plus rapide (pas de requêtes SQL)
 - Plus simple (pas de schéma à définir)
 - Parfait pour les messages (clé = ID du message)
 - Demandé explicitement dans le cahier des charges
 
----
+4.6. `services/socket_service.dart`
 
-### 4.6. `services/socket_service.dart`
+Rôle : Connexion WebSocket temps réel vers le serveur Node.js.
 
-**Rôle :** Connexion WebSocket temps réel vers le serveur Node.js.
-
-**Différence HTTP vs WebSocket :**
+Différence HTTP vs WebSocket :
 ```
 HTTP classique :
   Client → "Donne-moi les nouveaux messages" → Serveur
@@ -231,7 +212,7 @@ WebSocket (Socket.io) :
   Client → "Message envoyé" → Serveur
 ```
 
-**Événements écoutés (serveur → client) :**
+Événements écoutés (serveur → client) :
 ```dart
 'new_message'  → Nouveau message reçu
 'user_online'  → Un contact vient de se connecter
@@ -241,7 +222,7 @@ WebSocket (Socket.io) :
 'message_read' → Un message a été lu (coches bleues)
 ```
 
-**Événements émis (client → serveur) :**
+Événements émis (client → serveur) :
 ```dart
 SocketService.sendMessage(message)           // Envoyer un message
 SocketService.emitTyping(chatId)             // "Je suis en train d'écrire"
@@ -249,13 +230,11 @@ SocketService.emitMessageRead(chatId, msgId) // "J'ai lu ce message"
 SocketService.joinChat(chatId)               // Rejoindre une room
 ```
 
----
+4.7. `services/auth_service.dart`
 
-### 4.7. `services/auth_service.dart`
+Rôle : Appels HTTP vers l'API Laravel pour l'authentification.
 
-**Rôle :** Appels HTTP vers l'API Laravel pour l'authentification.
-
-**Flux complet du login :**
+Flux complet du login :
 ```
 LoginScreen (UI)
     ↓ appelle
@@ -274,13 +253,11 @@ LoginCubit émet LoginStatus.loaded
 LoginScreen redirige vers /home
 ```
 
----
+4.8. `services/encryption_service.dart`
 
-### 4.8. `services/encryption_service.dart`
+Rôle : Chiffrement AES-256 E2EE avant envoi des messages.
 
-**Rôle :** Chiffrement AES-256 E2EE avant envoi des messages.
-
-**Principe E2EE :**
+Principe E2EE :
 ```
 Utilisateur A tape "Bonjour"
     ↓ encrypt("Bonjour", key)
@@ -293,19 +270,17 @@ decrypt("aB3xK9mP:xYz123...", key)
 "Bonjour" (texte en clair)
 ```
 
-**Format du message chiffré :** `"IV:CipherText"` (les deux en Base64)
-- **IV** = Initialization Vector = nombre aléatoire unique par message
-- **CipherText** = message chiffré
+Format du message chiffré : `"IV:CipherText"` (les deux en Base64)
+- IV = Initialization Vector = nombre aléatoire unique par message
+- CipherText = message chiffré
 
-**Pourquoi l'IV est important :** Sans IV, deux messages identiques donneraient le même ciphertext, ce qui permettrait de déduire le contenu.
+Pourquoi l'IV est important : Sans IV, deux messages identiques donneraient le même ciphertext, ce qui permettrait de déduire le contenu.
 
----
+4.9. `services/notification_service.dart`
 
-### 4.9. `services/notification_service.dart`
+Rôle : Notifications push Firebase FCM.
 
-**Rôle :** Notifications push Firebase FCM.
-
-**3 cas de réception d'une notification :**
+3 cas de réception d'une notification :
 ```
 1. App OUVERTE (foreground)
    → Firebase n'affiche pas de notification automatiquement
@@ -320,19 +295,17 @@ decrypt("aB3xK9mP:xYz123...", key)
    → Tap → getInitialMessage → navigation vers le chat
 ```
 
-**⚠️ Configuration requise :**
+⚠️ Configuration requise :
 - Créer un projet Firebase sur console.firebase.google.com
 - Télécharger `google-services.json` → placer dans `android/app/`
 - Exécuter `flutterfire configure`
 - Décommenter les lignes Firebase dans `main.dart`
 
----
+4.10. `services/contact_service.dart`
 
-### 4.10. `services/contact_service.dart`
+Rôle : Accès aux contacts du téléphone + récupération des utilisateurs NovaX.
 
-**Rôle :** Accès aux contacts du téléphone + récupération des utilisateurs NovaX.
-
-**Flux :**
+Flux :
 ```
 1. Demande permission contacts (Android/iOS)
 2. GET /api/contacts → Laravel retourne les utilisateurs NovaX
@@ -340,29 +313,25 @@ decrypt("aB3xK9mP:xYz123...", key)
 4. Tap sur un contact → navigation vers /chat/{contactId}
 ```
 
-**Gestion des permissions :**
+Gestion des permissions :
 ```dart
 Permission.contacts.status  → Vérifie l'état actuel
 Permission.contacts.request() → Demande à l'utilisateur
 openAppSettings()           → Ouvre les paramètres si refus définitif
 ```
 
----
+4.11. `repositories/auth_repository.dart`
 
-### 4.11. `repositories/auth_repository.dart`
+Rôle : Couche d'abstraction entre AuthCubit et AuthService.
 
-**Rôle :** Couche d'abstraction entre AuthCubit et AuthService.
-
-**Pourquoi ce pattern ?**
+Pourquoi ce pattern ?
 - Le Cubit ne sait pas si les données viennent d'une API, d'une base locale, ou d'un mock
 - Si on change de backend (Laravel → autre), on modifie seulement le Repository
 - Facilite les tests unitaires (on peut remplacer le Repository par un faux)
 
----
+4.12. `repositories/message_repository.dart`
 
-### 4.12. `repositories/message_repository.dart`
-
-**Rôle :** Stratégie "Offline First" pour les messages.
+Rôle : Stratégie "Offline First" pour les messages.
 
 ```
 Envoi d'un message :
@@ -379,11 +348,9 @@ Réception d'un message :
   4. Marqué "lu" automatiquement si le chat est ouvert
 ```
 
----
+4.13. `repositories/chat_repository.dart`
 
-### 4.13. `repositories/chat_repository.dart`
-
-**Rôle :** Gestion des conversations avec stratégie cache.
+Rôle : Gestion des conversations avec stratégie cache.
 
 ```dart
 // Retour instantané depuis Hive (pas de réseau)
@@ -396,33 +363,29 @@ fetchChatsFromApi()
 fetchMessagesFromApi(chatId, page: 1)
 ```
 
----
+4.14. `cubits/login/auth_cubit.dart`
 
-### 4.14. `cubits/login/auth_cubit.dart`
+Rôle : Gestion de la session globale (disponible dans toute l'app).
 
-**Rôle :** Gestion de la session globale (disponible dans toute l'app).
-
-**États possibles :**
+États possibles :
 ```dart
 AuthStatus.unknown         → Vérification en cours (SplashScreen)
 AuthStatus.authenticated   → Connecté → affiche /home
 AuthStatus.unauthenticated → Non connecté → affiche /sign_in
 ```
 
-**Méthodes clés :**
+Méthodes clés :
 ```dart
 checkAuthStatus()    // Vérifie le token au démarrage (SplashScreen)
 setAuthenticated()   // Appelé après login réussi + connecte Socket.io
 logout()             // Supprime token + déconnecte Socket.io
 ```
 
----
+4.15. `cubits/login/login_cubit.dart`
 
-### 4.15. `cubits/login/login_cubit.dart`
+Rôle :Logique du formulaire de connexion.
 
-**Rôle :** Logique du formulaire de connexion.
-
-**États :**
+États :
 ```dart
 LoginStatus.initial  → Formulaire vide
 LoginStatus.loading  → Requête en cours → spinner sur le bouton
@@ -430,28 +393,24 @@ LoginStatus.loaded   → Succès → redirection vers /home
 LoginStatus.error    → Échec → SnackBar rouge avec le message
 ```
 
----
+4.16. `cubits/login/chat_cubit.dart`
 
-### 4.16. `cubits/login/chat_cubit.dart`
+Rôle : Gestion de la liste des conversations.
 
-**Rôle :** Gestion de la liste des conversations.
-
-**Fonctionnalités :**
+Fonctionnalités :
 ```dart
 loadChats()                    // Charge depuis API (ou mockées si indisponible)
 updateChatWithNewMessage(...)  // Met à jour quand un message arrive
 markChatAsRead(chatId)         // Remet le badge non-lu à 0
 ```
 
-**Mode démo :** Si le serveur Laravel n'est pas disponible, affiche 8 conversations fictives avec une bannière orange "Mode démo".
+Mode démo : Si le serveur Laravel n'est pas disponible, affiche 8 conversations fictives avec une bannière orange "Mode démo".
 
----
+4.17. `cubits/login/message_cubit.dart`
 
-### 4.17. `cubits/login/message_cubit.dart`
+Rôle : Gestion des messages d'une conversation ouverte.
 
-**Rôle :** Gestion des messages d'une conversation ouverte.
-
-**Optimistic Update :**
+Optimistic Update :
 ```dart
 // Le message apparaît IMMÉDIATEMENT dans l'UI
 // sans attendre la confirmation du serveur
@@ -463,17 +422,15 @@ final sentMessage = await messageRepository.sendMessage(message);
 // Mise à jour du statut (sending → sent)
 ```
 
-**Indicateur "en train d'écrire" :**
+Indicateur "en train d'écrire" :
 ```dart
 SocketService.onTyping = (chatId) => emit(state.copyWith(isTyping: true));
 SocketService.onStopTyping = (chatId) => emit(state.copyWith(isTyping: false));
 ```
 
----
+4.18. `cubits/login/theme_cubit.dart`
 
-### 4.18. `cubits/login/theme_cubit.dart`
-
-**Rôle :** Toggle dark/light mode persistant.
+Rôle : Toggle dark/light mode persistant.
 
 ```dart
 toggleTheme()  // Bascule et sauvegarde dans SharedPreferences
@@ -482,13 +439,11 @@ setLight()     // Force le mode clair
 isDarkMode     // Getter : true si mode sombre actif
 ```
 
----
+4.19. `screens/auth/splash_screen.dart`
 
-### 4.19. `screens/auth/splash_screen.dart`
+Rôle : Écran de démarrage avec animation + vérification de session.
 
-**Rôle :** Écran de démarrage avec animation + vérification de session.
-
-**Logique de navigation :**
+Logique de navigation :
 ```
 App lancée
     ↓ Animation fade-in (1 seconde)
@@ -499,38 +454,32 @@ Token trouvé → context.go('/home')
 Pas de token → context.go('/sign_in')
 ```
 
----
+4.20. `screens/auth/login_screen.dart`
 
-### 4.20. `screens/auth/login_screen.dart`
+Rôle : Formulaire de connexion avec validation.
 
-**Rôle :** Formulaire de connexion avec validation.
-
-**Points importants :**
+Points importants :
 - `StatefulWidget` (nécessaire pour les TextEditingControllers)
 - `BlocListener` : réagit aux changements sans rebuild (redirection, SnackBar)
 - `BlocBuilder` : reconstruit uniquement le bouton selon l'état (spinner/texte)
 - `GlobalKey<FormState>` : valide tous les champs avant d'appeler le Cubit
 - `dispose()` : libère les contrôleurs pour éviter les fuites mémoire
 
----
+4.21. `screens/auth/register_screen.dart`
 
-### 4.21. `screens/auth/register_screen.dart`
+Rôle : Formulaire d'inscription avec validation complète.
 
-**Rôle :** Formulaire d'inscription avec validation complète.
-
-**Validations :**
+Validations :
 - Nom : obligatoire, minimum 2 caractères
 - Email : obligatoire, format valide (regex)
 - Téléphone : optionnel
 - Mot de passe : obligatoire, minimum 8 caractères
 
----
+4.22. `screens/home/chat_list_screen.dart`
 
-### 4.22. `screens/home/chat_list_screen.dart`
+Rôle : Liste des conversations branchée sur ChatCubit.
 
-**Rôle :** Liste des conversations branchée sur ChatCubit.
-
-**Fonctionnalités :**
+Fonctionnalités :
 - Initiale du contact dans l'avatar (pas de photo = initiale colorée)
 - Badge non-lu (cercle coloré avec le nombre)
 - Formatage intelligent de l'heure :
@@ -540,13 +489,11 @@ Pas de token → context.go('/sign_in')
 - Bannière orange si mode démo (serveur indisponible)
 - Bouton "+" → navigue vers ContactsScreen
 
----
+4.23. `screens/chat/chat_screen.dart`
 
-### 4.23. `screens/chat/chat_screen.dart`
+Rôle : Écran de conversation avec envoi de texte et d'images.
 
-**Rôle :** Écran de conversation avec envoi de texte et d'images.
-
-**image_picker intégré :**
+image_picker intégré :
 ```dart
 // Ouvre un menu BottomSheet avec 2 options
 _showImageSourceDialog()
@@ -559,45 +506,43 @@ maxWidth: 1024     // Largeur max en pixels
 maxHeight: 1024    // Hauteur max en pixels
 ```
 
-**Bulles de messages :**
+Bulles de messages :
 - Coin inférieur droit arrondi = mes messages
 - Coin inférieur gauche arrondi = messages reçus
 - Heure + coches de statut (✓✓)
 
 ---
 
-### 4.24. `screens/contacts/contacts_screen.dart`
+4.24. `screens/contacts/contacts_screen.dart`
 
-**Rôle :** Sélection d'un contact pour démarrer une conversation.
+Rôle : Sélection d'un contact pour démarrer une conversation.
 
-**Gestion des permissions :**
+Gestion des permissions :
 ```
 Permission accordée → charge les contacts NovaX depuis l'API
 Permission refusée  → affiche un message + bouton "Réessayer"
 Refus définitif     → ouvre les paramètres système
 ```
 
-**Indicateur en ligne :** Point vert sur l'avatar si `contact.isOnline == true`.
+Indicateur en ligne : Point vert sur l'avatar si `contact.isOnline == true`.
 
 ---
 
-### 4.25. `screens/profile/profile_screen.dart`
+4.25. `screens/profile/profile_screen.dart`
 
-**Rôle :** Profil utilisateur + paramètres.
+Rôle : Profil utilisateur + paramètres.
 
-**Fonctionnalités :**
+Fonctionnalités :
 - Affiche nom et email depuis AuthCubit
 - Toggle dark/light mode via ThemeCubit
 - Déconnexion avec confirmation (AlertDialog)
 - Placeholders pour notifications et confidentialité
 
----
+4.26. `main.dart`
 
-### 4.26. `main.dart`
+Rôle : Point d'entrée — initialise tout et injecte les dépendances.
 
-**Rôle :** Point d'entrée — initialise tout et injecte les dépendances.
-
-**Ordre d'initialisation :**
+Ordre d'initialisation :
 ```dart
 1. WidgetsFlutterBinding.ensureInitialized()  // Flutter prêt
 2. HiveService.init()                          // Base de données locale
@@ -607,7 +552,7 @@ Refus définitif     → ouvre les paramètres système
 6. runApp(MainApp())                           // Lance l'UI
 ```
 
-**Injection de dépendances (MultiRepositoryProvider + MultiBlocProvider) :**
+Injection de dépendances (MultiRepositoryProvider + MultiBlocProvider) :
 ```
 MultiRepositoryProvider
   ├── AuthRepository
@@ -621,12 +566,10 @@ MultiBlocProvider
   └── ChatCubit       → Liste conversations
 ```
 
----
-
-## 5. Dépendances Flutter (pubspec.yaml)
+5. Dépendances Flutter (pubspec.yaml)
 
 | Package | Version | Rôle |
-|---|---|---|
+
 | `flutter_bloc` | ^9.1.1 | Pattern BLoC/Cubit — gestion d'état |
 | `equatable` | ^2.0.8 | Comparaison d'objets pour les States |
 | `go_router` | ^17.2.3 | Navigation déclarative |
@@ -643,20 +586,18 @@ MultiBlocProvider
 | `google_fonts` | ^8.1.0 | Police Questrial |
 | `intl` | ^0.20.2 | Formatage dates en français |
 
----
-
-## 6. Ce qui Attend les Camarades
+6. Ce qui Attend les Camarades
 
 | Fonctionnalité | Bloqué par | Action requise |
-|---|---|---|
-| Login/Register réels | **Emmanuel** (Dev Web) | Lancer Laravel sur port 8000 |
-| Messages temps réel | **Michaël** (RSI) | Lancer Node.js Socket.io sur port 3000 |
-| Firebase FCM activé | **Toute l'équipe** | Créer projet Firebase + `google-services.json` |
-| E2EE échange de clés | **Michaël** (RSI) | Définir le protocole d'échange de clés |
-| Wireframes finaux | **Kamélia** (UI/UX) | Export Figma + palette Flutter |
-| Analyse de sentiment | **Ulrich** (Big Data) | Endpoint Vertex AI |
 
-### Comment brancher le serveur Laravel (Emmanuel)
+| Login/Register réels | Emmanuel (Dev Web) | Lancer Laravel sur port 8000 |
+| Messages temps réel | Michaël (RSI) | Lancer Node.js Socket.io sur port 3000 |
+| Firebase FCM activé | Toute l'équipe | Créer projet Firebase + `google-services.json` |
+| E2EE échange de clés | Michaël (RSI) | Définir le protocole d'échange de clés |
+| Wireframes finaux | Kamélia (UI/UX) | Export Figma + palette Flutter |
+| Analyse de sentiment | Ulrich (Big Data) | Endpoint Vertex AI |
+
+Comment brancher le serveur Laravel (Emmanuel)
 
 Quand Emmanuel lance son serveur, changer dans `app_constants.dart` :
 ```dart
@@ -670,7 +611,7 @@ static const String baseUrl = "http://192.168.X.X:8000/api";
 static const String baseUrl = "http://10.0.2.2:8000/api";
 ```
 
-### Comment activer Firebase (quand projet créé)
+Comment activer Firebase (quand projet créé)
 
 ```dart
 // Dans main.dart, décommenter :
@@ -680,9 +621,7 @@ await Firebase.initializeApp(
 await NotificationService.init();
 ```
 
----
-
-## 7. Checklist Finale Dev Mobile ✅
+7. Checklist Finale Dev Mobile ✅
 
 - [x] Architecture Flutter en couches (constants/models/services/repositories/cubits/screens)
 - [x] Navigation déclarative go_router (6 routes)
@@ -708,8 +647,6 @@ await NotificationService.init();
 - [x] Repo GitHub avec commits propres
 - [x] Documentation complète dans 01_Documentation/
 
----
-
-*Document de clôture rédigé le 20 Mai 2026*  
-*SAMBIENI Firmin — Dev Mobile — Projet NovaX*  
-*Repo : https://github.com/firmin-del/connectx-flutter*
+Document de clôture rédigé le 20 Mai 202
+SAMBIENI Firmin — Dev Mobile — Projet NovaX 
+Repo : https://github.com/firmin-del/connectx-flutter
