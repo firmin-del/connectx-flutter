@@ -1,54 +1,302 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+// chat_list_screen.dart
+// Écran principal : liste de toutes les conversations de l'utilisateur.
+//
+// Branché sur ChatCubit (Étape 03) pour afficher les vraies données.
+// Affiche des données mockées si le serveur n'est pas disponible.
+//
+// Fonctionnalités :
+//   - Liste des conversations triées par date (plus récente en haut)
+//   - Badge de messages non lus (cercle vert avec le nombre)
+//   - Aperçu du dernier message
+//   - Navigation vers ChatScreen au tap
+//   - Bouton profil dans l'AppBar
+//   - FAB pour créer une nouvelle conversation
 
-class ChatListScreen extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../../cubits/login/chat_cubit.dart';
+import '../../cubits/login/auth_cubit.dart';
+
+class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
+
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Charge les conversations au démarrage de l'écran
+    // Le ChatCubit gère le chargement depuis l'API ou les données mockées
+    context.read<ChatCubit>().loadChats();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // ── AppBar ─────────────────────────────────────────────────
       appBar: AppBar(
-        title: const Text("Discussions"),
+        title: Text(
+          'NovaX',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
         actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+          // Bouton recherche
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // TODO: Implémenter la recherche de conversations
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Recherche — bientôt disponible")),
+              );
+            },
+          ),
+          // Menu contextuel
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'profile') context.go('/profile');
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline),
+                    SizedBox(width: 8),
+                    Text('Mon profil'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: 8, // Temporaire, on mettra des vraies données après
-        itemBuilder: (context, index) {
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Colors.grey[800],
-              child: const Icon(Icons.person, color: Colors.white),
-            ),
-            title: Text("Contact ${index + 1}"),
-            subtitle: const Text("Dernier message..."),
-            trailing: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text("14:32", style: TextStyle(fontSize: 12)),
-                CircleAvatar(
-                  radius: 10,
-                  backgroundColor: Colors.green,
-                  child: Text("2", style: TextStyle(fontSize: 10, color: Colors.white)),
+
+      // ── Corps : liste des conversations ────────────────────────
+      body: BlocBuilder<ChatCubit, ChatState>(
+        builder: (context, state) {
+          // Récupère l'ID de l'utilisateur connecté pour afficher les noms
+          final currentUserId = context.read<AuthCubit>().state.user?.id ?? '';
+
+          // ── État de chargement ─────────────────────────────────
+          if (state.status == ChatLoadStatus.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // ── Liste vide ─────────────────────────────────────────
+          if (state.chats.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    size: 80,
+                    color: Colors.grey.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Aucune conversation",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Appuie sur + pour démarrer une discussion",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // ── Bannière mode démo (si serveur non disponible) ─────
+          return Column(
+            children: [
+              // Affiche une bannière si on est en mode démo
+              if (state.errorMessage.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        state.errorMessage,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-        onTap: () {
-  context.go('/chat/${index + 1}');
-},
+
+              // ── Liste des conversations ────────────────────────
+              Expanded(
+                child: ListView.separated(
+                  itemCount: state.chats.length,
+                  // Séparateur fin entre chaque item
+                  separatorBuilder: (_, __) => const Divider(
+                    height: 1,
+                    indent: 72, // Aligne avec le texte (après l'avatar)
+                  ),
+                  itemBuilder: (context, index) {
+                    final chat = state.chats[index];
+
+                    // Nom à afficher (nom du groupe ou nom du contact)
+                    final displayName = chat.participants.isNotEmpty
+                        ? chat.getDisplayName(currentUserId)
+                        : 'Contact ${index + 1}';
+
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+
+                      // ── Avatar ─────────────────────────────────
+                      leading: CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.15),
+                        child: Text(
+                          // Initiale du nom
+                          displayName.isNotEmpty
+                              ? displayName[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+
+                      // ── Nom du contact ─────────────────────────
+                      title: Text(
+                        displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                      // ── Aperçu du dernier message ──────────────
+                      subtitle: Text(
+                        chat.lastMessagePreview,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+
+                      // ── Heure + Badge non-lu ───────────────────
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // Heure du dernier message
+                          Text(
+                            _formatTime(chat.lastActivity),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: chat.unreadCount > 0
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Badge messages non lus
+                          if (chat.unreadCount > 0)
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 20,
+                                minHeight: 20,
+                              ),
+                              child: Text(
+                                chat.unreadCount > 99
+                                    ? '99+'
+                                    : '${chat.unreadCount}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      // ── Navigation vers le chat ────────────────
+                      onTap: () {
+                        // Remet à zéro le badge non-lu
+                        context.read<ChatCubit>().markChatAsRead(chat.id);
+                        // Navigue vers l'écran de chat avec le nom du contact
+                        context.go(
+                          '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}',
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
+
+      // ── Bouton Nouveau Chat ────────────────────────────────────
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          // TODO: Ouvrir l'écran de sélection de contacts
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Nouveau chat / Groupe bientôt disponible")),
+            const SnackBar(content: Text("Nouveau chat — bientôt disponible")),
           );
         },
         child: const Icon(Icons.add_comment),
       ),
     );
+  }
+
+  /// Formate la date/heure du dernier message pour l'affichage.
+  /// - Aujourd'hui → "14:32"
+  /// - Cette semaine → "Lun."
+  /// - Plus ancien → "12/05"
+  String _formatTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDay = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+    if (messageDay == today) {
+      // Aujourd'hui : affiche l'heure
+      return DateFormat('HH:mm').format(dateTime);
+    } else if (now.difference(dateTime).inDays < 7) {
+      // Cette semaine : affiche le jour abrégé
+      return DateFormat('E', 'fr_FR').format(dateTime);
+    } else {
+      // Plus ancien : affiche la date
+      return DateFormat('dd/MM').format(dateTime);
+    }
   }
 }

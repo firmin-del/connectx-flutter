@@ -14,6 +14,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/app_constants.dart';
 import '../models/message_model.dart';
+import '../models/chat_model.dart'; // Ajout Étape 03
 
 class HiveService {
   // ── Initialisation ────────────────────────────────────────────
@@ -34,6 +35,10 @@ class HiveService {
     }
     if (!Hive.isAdapterRegistered(2)) {
       Hive.registerAdapter(MessageStatusAdapter()); // typeId: 2
+    }
+    // Adaptateur ChatModel (Étape 03)
+    if (!Hive.isAdapterRegistered(3)) {
+      Hive.registerAdapter(ChatModelAdapter()); // typeId: 3
     }
 
     // Ouvre les boîtes au démarrage pour un accès rapide ensuite

@@ -17,6 +17,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/user_model.dart';
 import '../../repositories/api_repository/auth_repository.dart';
+import '../../services/auth_service.dart'; // Ajout Étape 03
 import '../../services/socket_service.dart';
 
 // ── État ──────────────────────────────────────────────────────
@@ -115,9 +116,11 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// Établit la connexion Socket.io après authentification.
   Future<void> _connectSocket() async {
-    // Récupère le token JWT pour l'authentification Socket.io
-    // Le token est passé au serveur Node.js pour identifier l'utilisateur
-    // TODO: Récupérer le token via AuthService.getToken()
-    // SocketService.connect(token);
+    // Récupère le token JWT sauvegardé localement
+    final token = await AuthService.getToken();
+    if (token != null && token.isNotEmpty) {
+      // Connecte le socket avec le token pour que Node.js identifie l'utilisateur
+      SocketService.connect(token);
+    }
   }
 }
