@@ -1,6 +1,6 @@
 
 
-ConnectX — Résumé Technique du Projet
+Novax — Résumé Technique du Projet
 > Clone WhatsApp développé en Flutter  
 > Document de présentation à l'équipe — Mai 2026
 

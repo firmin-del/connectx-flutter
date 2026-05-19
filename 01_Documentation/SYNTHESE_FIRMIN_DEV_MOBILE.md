@@ -47,42 +47,40 @@ Flux de données : `UI → Cubit → Repository → Service → Serveur/DB`
 
 3. Les 3 Étapes de Réalisation
 
-### Étape 01 — Base visuelle
+Étape 01 — Base visuelle
 Mise en place de l'architecture, navigation, et écrans mockés.
 - Architecture Flutter en couches (constants / models / services / repositories / cubits / screens)
 - Navigation déclarative avec `go_router` (6 routes)
 - SplashScreen, LoginScreen, ChatListScreen, ChatScreen (données fictives)
 - Thème Light/Dark avec Google Fonts Questrial
 - Modèles de données : UserModel, ChatModel, MessageModel, ContactModel
-- **Commit :** `bbb5a5a` — 229 fichiers, 7300 lignes
+- Commit : `bbb5a5a` — 229 fichiers, 7300 lignes
 
-### Étape 02 — Logique métier
+Étape 02 — Logique métier
 Connexion à la vraie logique : base de données, API, temps réel.
-- **Hive** remplace SQLite (demandé dans le cahier des charges) — base NoSQL locale
-- **SocketService** — WebSocket vers Node.js (temps réel)
-- **AuthService** — vrais appels API Laravel (login, register, logout, JWT)
-- **Cubits complets** — AuthCubit, LoginCubit, MessageCubit, ThemeCubit
-- **Stratégie Offline First** — messages sauvegardés localement avant envoi
+- Hive remplace SQLite (demandé dans le cahier des charges) — base NoSQL locale
+- SocketService — WebSocket vers Node.js (temps réel)
+- AuthService — vrais appels API Laravel (login, register, logout, JWT)
+- Cubits complets — AuthCubit, LoginCubit, MessageCubit, ThemeCubit
+- Stratégie Offline First — messages sauvegardés localement avant envoi
 - LoginScreen réécrit (bug boucle infinie corrigé)
 - RegisterScreen et ProfileScreen créés
-- **Commits :** `ac24bf4`, `5bbff8d`, `b37a5fe` — +2644 lignes
+- Commits : `ac24bf4`, `5bbff8d`, `b37a5fe` — +2644 lignes
 
-### Étape 03 — Sécurité, notifications, contacts
+Étape 03 — Sécurité, notifications, contacts
 Fonctionnalités avancées et finalisation.
-- **EncryptionService** — chiffrement AES-256 E2EE avant envoi
-- **NotificationService** — Firebase FCM (push notifications)
-- **ChatCubit + ChatRepository** — liste des conversations (mode démo si serveur absent)
-- **ContactService** — accès annuaire + permissions Android/iOS
-- **ContactsScreen** — sélection de contact avec indicateur en ligne
-- **ChatScreen** — image_picker intégré (caméra + galerie)
-- **Commits :** `42e526a`, `a7186b2` — +2126 lignes
+- EncryptionService — chiffrement AES-256 E2EE avant envoi
+- NotificationService — Firebase FCM (push notifications)
+- ChatCubit + ChatRepository — liste des conversations (mode démo si serveur absent)
+- ContactService — accès annuaire + permissions Android/iOS
+- ContactsScreen — sélection de contact avec indicateur en ligne
+- ChatScreen — image_picker intégré (caméra + galerie)
+- Commits : `42e526a`, `a7186b2` — +2126 lignes
 
----
+4. Concepts Clés Expliqués
 
-## 4. Concepts Clés Expliqués
-
-### BLoC/Cubit — Gestion d'état
-Un **Cubit** sépare la logique de l'UI. L'UI appelle une méthode → le Cubit émet un état → l'UI se reconstruit.
+BLoC/Cubit — Gestion d'état
+Un Cubit sépare la logique de l'UI. L'UI appelle une méthode → le Cubit émet un état → l'UI se reconstruit.
 
 ```dart
 // Exemple : LoginCubit
@@ -97,8 +95,8 @@ Future<void> login(String email, String password) async {
 }
 ```
 
-### Hive — Base de données locale
-Hive stocke les messages sur l'appareil pour un accès **offline**. Organisé en "boîtes" (comme des tables).
+Hive — Base de données locale
+Hive stocke les messages sur l'appareil pour un accès offline. Organisé en "boîtes" (comme des tables).
 
 ```dart
 HiveService.saveMessage(message)           // Sauvegarder
@@ -112,8 +110,8 @@ Chaque classe stockée dans Hive a un `typeId` unique :
 - `typeId: 2` → MessageStatus (sending, sent, delivered, read, failed)
 - `typeId: 3` → ChatModel
 
-### Socket.io — Temps réel
-Contrairement à HTTP (le client demande), Socket.io permet au **serveur d'envoyer sans qu'on demande**.
+Socket.io — Temps réel
+Contrairement à HTTP (le client demande), Socket.io permet au serveur d'envoyer sans qu'on demande.
 
 ```
 Utilisateur A envoie "Bonjour"
@@ -134,24 +132,24 @@ SocketService.emitTyping(chatId)
 SocketService.emitMessageRead(chatId, msgId)
 ```
 
-### JWT — Authentification
-Après login, le serveur renvoie un **token JWT**. Il est sauvegardé localement et ajouté automatiquement à chaque requête via un **intercepteur Dio**.
+JWT — Authentification
+Après login, le serveur renvoie un token JWT. Il est sauvegardé localement et ajouté automatiquement à chaque requête via un intercepteur Dio.
 
 ```dart
 // L'intercepteur dans api_config.dart fait ça automatiquement :
 options.headers['Authorization'] = 'Bearer $token';
 ```
 
-### Offline First — Stratégie messages
-Les messages sont **d'abord sauvegardés localement**, puis envoyés au serveur. L'UI est toujours réactive.
+Offline First — Stratégie messages
+Les messages sont d'abord sauvegardés localement, puis envoyés au serveur. L'UI est toujours réactive.
 
 ```
 Envoi :  Hive (sending) → Socket.io → Hive (sent ou failed)
 Réception : Socket.io → Hive (delivered) → UI → Hive (read)
 ```
 
-### E2EE — Chiffrement AES-256
-Le message est chiffré **avant** d'être envoyé. Le serveur ne voit jamais le contenu en clair.
+E2EE — Chiffrement AES-256
+Le message est chiffré avant d'être envoyé. Le serveur ne voit jamais le contenu en clair.
 
 ```
 "Bonjour" → encrypt() → "aB3xK9mP:xYz123..." → Socket.io → decrypt() → "Bonjour"
@@ -159,8 +157,8 @@ Le message est chiffré **avant** d'être envoyé. Le serveur ne voit jamais le 
 
 Format : `"IV:CipherText"` — l'IV (nombre aléatoire unique) garantit que deux messages identiques donnent des résultats différents.
 
-### Optimistic Update — UX fluide
-Le message apparaît **immédiatement** dans l'UI sans attendre la confirmation du serveur.
+Optimistic Update — UX fluide
+Le message apparaît immédiatement dans l'UI sans attendre la confirmation du serveur.
 
 ```dart
 // 1. Affiche immédiatement
@@ -170,12 +168,10 @@ final sentMessage = await messageRepository.sendMessage(message);
 // 3. Met à jour le statut (sending → sent)
 ```
 
----
-
-## 5. Écrans et leur rôle
+5. Écrans et leur rôle
 
 | Écran | Route | Rôle |
-|---|---|---|
+
 | SplashScreen | `/` | Animation + vérifie token → redirige |
 | LoginScreen | `/sign_in` | Formulaire + validation + BLoC |
 | RegisterScreen | `/register` | Inscription avec validation complète |
@@ -184,12 +180,10 @@ final sentMessage = await messageRepository.sendMessage(message);
 | ContactsScreen | `/contacts` | Sélection contact + permissions |
 | ProfileScreen | `/profile` | Profil + toggle thème + déconnexion |
 
----
-
-## 6. Packages utilisés
+6. Packages utilisés
 
 | Package | Rôle |
-|---|---|
+
 | `flutter_bloc` | Gestion d'état BLoC/Cubit |
 | `go_router` | Navigation déclarative |
 | `dio` | Client HTTP → Laravel API |
@@ -204,20 +198,18 @@ final sentMessage = await messageRepository.sendMessage(message);
 | `google_fonts` | Police Questrial |
 | `intl` | Dates en français |
 
----
-
-## 7. Ce qui attend les camarades
+7. Ce qui attend les camarades
 
 | Besoin | Camarade | Action |
-|---|---|---|
-| Serveur Laravel (login, chats, contacts) | **Emmanuel** | Lancer sur port 8000 |
-| Serveur Node.js Socket.io | **Michaël** | Lancer sur port 3000 |
-| Protocole échange de clés E2EE | **Michaël** | Définir la méthode |
-| Projet Firebase + google-services.json | **Équipe** | Créer + configurer |
-| Wireframes + palette Flutter | **Kamélia** | Export Figma |
+
+| Serveur Laravel (login, chats, contacts) | Emmanuel | Lancer sur port 8000 |
+| Serveur Node.js Socket.io | Michaël| Lancer sur port 3000 |
+| Protocole échange de clés E2EE | Michaël | Définir la méthode |
+| Projet Firebase + google-services.json | Équipe | Créer + configurer |
+| Wireframes + palette Flutter | Kamélia | Export Figma |
 | Endpoint Vertex AI | **Ulrich** | URL + clé API |
 
-**Quand Emmanuel lance Laravel**, changer dans `app_constants.dart` :
+Quand Emmanuel lance Laravel, changer dans `app_constants.dart` :
 ```dart
 static const String baseUrl = "http://192.168.X.X:8000/api"; // réseau local
 // ou
@@ -232,7 +224,7 @@ await NotificationService.init();
 
 ---
 
-## 8. Checklist finale ✅
+8. Checklist finale ✅
 
 - [x] Architecture Flutter en couches
 - [x] Navigation go_router (6 routes)
@@ -249,18 +241,12 @@ await NotificationService.init();
 - [x] Repo GitHub + 8 commits propres
 - [x] Documentation complète (4 fichiers dans 01_Documentation/)
 
----
+9. Ce que Firmin a livré — Détail complet
 
-*SAMBIENI Firmin — Dev Mobile — Projet NovaX — Mai 2026*
-
----
-
-## 9. Ce que Firmin a livré — Détail complet
-
-### ✅ Fonctionnalités 100% opérationnelles (testables maintenant)
+✅ Fonctionnalités 100% opérationnelles (testables maintenant)
 
 | Fonctionnalité | Fichier(s) | Comment tester |
-|---|---|---|
+
 | Démarrage + animation logo | `splash_screen.dart` | Lancer l'app → logo fade-in 3s |
 | Vérification session auto | `splash_screen.dart` + `auth_cubit.dart` | Si token → /home, sinon → /sign_in |
 | Formulaire login avec validation | `login_screen.dart` | Champs vides → messages d'erreur |
@@ -278,10 +264,10 @@ await NotificationService.init();
 | Base de données locale Hive | `hive_service.dart` | Messages sauvegardés offline |
 | Chiffrement AES-256 | `encryption_service.dart` | `EncryptionService.encrypt("texte")` |
 
-### ⏳ Fonctionnalités prêtes mais en attente du serveur
+⏳ Fonctionnalités prêtes mais en attente du serveur
 
 | Fonctionnalité | Fichier prêt | Bloqué par |
-|---|---|---|
+
 | Login réel avec token JWT | `auth_service.dart` | Serveur Laravel d'Emmanuel |
 | Inscription réelle | `auth_service.dart` | Serveur Laravel d'Emmanuel |
 | Liste vraies conversations | `chat_service.dart` + `chat_cubit.dart` | Serveur Laravel d'Emmanuel |
@@ -292,52 +278,47 @@ await NotificationService.init();
 | Contacts réels NovaX | `contact_service.dart` | Serveur Laravel d'Emmanuel |
 | Chiffrement E2EE activé | `encryption_service.dart` | Protocole de clés de Michaël |
 
----
+10. Ce que chaque camarade doit me rendre — Précis
+🌐 Emmanuel GBODOU — Dev Web (Laravel)
 
-## 10. Ce que chaque camarade doit me rendre — Précis
+Ce qu'il doit me donner :
 
----
-
-### 🌐 Emmanuel GBODOU — Dev Web (Laravel)
-
-**Ce qu'il doit me donner :**
-
-**A. La liste des endpoints API** (format exact attendu) :
+A. La liste des endpoints API (format exact attendu) :
 
 | Endpoint | Méthode | Corps | Réponse attendue |
-|---|---|---|---|
+
 | `/api/login` | POST | `{email, password}` | `{token: "JWT...", user: {id, name, email}}` |
 | `/api/register` | POST | `{name, email, password, password_confirmation}` | `{token: "JWT...", user: {id, name, email}}` |
-| `/api/logout` | POST | *(token dans header)* | `{message: "ok"}` |
-| `/api/chats` | GET | *(token dans header)* | `[{id, participants, last_message, unread_count, ...}]` |
+| `/api/logout` | POST | (token dans header) | `{message: "ok"}` |
+| `/api/chats` | GET | (token dans header) | `[{id, participants, last_message, unread_count, ...}]` |
 | `/api/chats/{id}/messages` | GET | `?page=1&per_page=20` | `{data: [{id, sender_id, content, type, created_at}]}` |
-| `/api/contacts` | GET | *(token dans header)* | `[{id, name, avatar, is_online, phone_number}]` |
+| `/api/contacts` | GET | (token dans header) | `[{id, name, avatar, is_online, phone_number}]` |
 
-**B. L'URL de son serveur** pour que je mette à jour `app_constants.dart` :
+B. L'URL de son serveur pour que je mette à jour `app_constants.dart` :
 ```dart
 // Je dois changer cette ligne avec son URL réelle :
 static const String baseUrl = "http://SON_IP:8000/api";
 ```
 
-**C. Le format exact du JSON** pour chaque réponse (surtout les noms des champs).  
+C. Le format exact du JSON pour chaque réponse (surtout les noms des champs).  
 Exemple : est-ce `sender_id` ou `senderId` ? `created_at` ou `timestamp` ?
 
----
 
-### 🔐 Michaël MIWANOU — RSI (Node.js + Sécurité)
 
-**Ce qu'il doit me donner :**
+🔐 Michaël MIWANOU — RSI (Node.js + Sécurité)
 
-**A. L'URL du serveur Socket.io** :
+Ce qu'il doit me donner :
+
+A. L'URL du serveur Socket.io :
 ```dart
 // Je dois changer cette ligne :
 static const String socketUrl = "http://SON_IP:3000";
 ```
 
-**B. La liste des événements Socket.io** qu'il a implémentés côté serveur :
+B. La liste des événements Socket.io qu'il a implémentés côté serveur :
 
 | Événement | Direction | Données |
-|---|---|---|
+
 | `send_message` | Client → Serveur | `{id, sender_id, receiver_id, chat_id, content, type}` |
 | `new_message` | Serveur → Client | même format |
 | `typing` | Client → Serveur | `{chat_id}` |
@@ -347,35 +328,31 @@ static const String socketUrl = "http://SON_IP:3000";
 
 > ⚠️ Si les noms d'événements sont différents, je dois les mettre à jour dans `socket_service.dart`.
 
-**C. La méthode d'échange de clés E2EE** :  
+C. La méthode d'échange de clés E2EE :  
 Mon `EncryptionService` utilise une clé symétrique locale pour l'instant.  
 Michaël doit me dire comment échanger les clés entre deux utilisateurs.  
 Options possibles :
 - Clé partagée via l'API Laravel (simple mais moins sécurisé)
 - Échange Diffie-Hellman (plus sécurisé, plus complexe)
 
-**D. Le token d'authentification Socket.io** :  
+D. Le token d'authentification Socket.io :  
 Mon code envoie déjà le JWT dans `setAuth({'token': token})`.  
 Michaël doit confirmer que son serveur Node.js vérifie bien ce token.
 
----
+Toute l'équipe — Firebase
 
-### 🔔 Toute l'équipe — Firebase
-
-**Ce dont j'ai besoin :**
+Ce dont j'ai besoin :
 
 1. Créer un projet Firebase sur https://console.firebase.google.com
 2. Ajouter l'app Android avec le package `com.example.clone_whatsapp_base_code`
 3. Télécharger `google-services.json` → me l'envoyer pour le placer dans `android/app/`
-4. Me donner la **VAPID key** pour le web (si on déploie sur Chrome)
+4. Me donner la VAPID key pour le web (si on déploie sur Chrome)
 
----
+Kamélia ABOU — UI/UX Motion
 
-### 🎨 Kamélia ABOU — UI/UX Motion
+Ce qu'elle doit me donner :
 
-**Ce qu'elle doit me donner :**
-
-**A. La palette de couleurs en format Flutter** :
+A. La palette de couleurs en format Flutter :
 ```dart
 // Format attendu (à mettre dans app_colors.dart) :
 static const Color primary = Color(0xFF??????);
@@ -384,26 +361,24 @@ static const Color messageSent = Color(0xFF??????);
 static const Color messageReceived = Color(0xFF??????);
 ```
 
-**B. La police de caractères** :
+B. La police de caractères :
 ```dart
 // Si elle change la police Questrial actuelle :
 GoogleFonts.nomDeLaPolice()
 ```
 
-**C. Les specs des animations** (durées en millisecondes) :
+C. Les specs des animations (durées en millisecondes) :
 - Animation d'envoi de message : `?? ms`
 - Transition entre écrans : `?? ms`
 - Indicateur "en train d'écrire" : style (3 points ? vague ?)
 
-**D. Les wireframes** dans le dossier `01_Documentation/Wireframes/` (actuellement vide).
+D. Les wireframes dans le dossier `01_Documentation/Wireframes/` (actuellement vide).
 
----
+🤖 Ulrich HANKPE — Big Data & IA
 
-### 🤖 Ulrich HANKPE — Big Data & IA
+Ce qu'il doit me donner :
 
-**Ce qu'il doit me donner :**
-
-**A. L'endpoint Vertex AI** pour l'analyse de sentiment :
+A. L'endpoint Vertex AI pour l'analyse de sentiment :
 ```dart
 // Format attendu :
 // URL : https://...vertex.ai/...
@@ -412,18 +387,16 @@ GoogleFonts.nomDeLaPolice()
 // Réponse : { "score": "positive" | "neutral" | "negative" }
 ```
 
-**B. La clé API Google Cloud** (ou le token d'accès).
+B. La clé API Google Cloud (ou le token d'accès).
 
-**C. À quel moment appeler l'API** :
+C. À quel moment appeler l'API :
 - Avant le chiffrement (côté client) ?
 - Après réception (côté serveur) ?
 - Uniquement pour les groupes ?
 
----
+11. Comment intégrer le travail des camarades — Guide pas à pas
 
-## 11. Comment intégrer le travail des camarades — Guide pas à pas
-
-### Étape A — Brancher le serveur Laravel (Emmanuel)
+Étape A — Brancher le serveur Laravel (Emmanuel)
 
 ```dart
 // 1. Modifier app_constants.dart
@@ -438,7 +411,7 @@ return UserModel.fromJson(data['user'] as Map<String, dynamic>);
 // Lancer l'app → saisir un vrai email/mdp → vérifier que ça redirige vers /home
 ```
 
-### Étape B — Brancher le serveur Socket.io (Michaël)
+Étape B — Brancher le serveur Socket.io (Michaël)
 
 ```dart
 // 1. Modifier app_constants.dart
@@ -455,7 +428,7 @@ void setAuthenticated(UserModel user) {
 context.read<MessageCubit>().sendTextMessage(text, receiverId);
 ```
 
-### Étape C — Activer Firebase (Notifications)
+Étape C — Activer Firebase (Notifications)
 
 ```bash
 # 1. Installer FlutterFire CLI
@@ -475,7 +448,7 @@ await Firebase.initializeApp(
 await NotificationService.init();
 ```
 
-### Étape D — Activer le chiffrement E2EE (Michaël)
+Étape D — Activer le chiffrement E2EE (Michaël)
 
 ```dart
 // Dans message_cubit.dart, modifier sendTextMessage() :
@@ -498,7 +471,7 @@ Future<void> _onMessageReceived(MessageModel message) async {
 }
 ```
 
-### Étape E — Appliquer le design de Kamélia
+Étape E — Appliquer le design de Kamélia
 
 ```dart
 // Dans app_colors.dart, remplacer les couleurs actuelles par celles de Kamélia
@@ -509,7 +482,7 @@ colorScheme: ColorScheme.fromSeed(
 textTheme: GoogleFonts.nouvellePoliceTextTheme(), // ← police de Kamélia
 ```
 
-### Étape F — Intégrer l'analyse de sentiment (Ulrich)
+Étape F — Intégrer l'analyse de sentiment (Ulrich)
 
 ```dart
 // Créer lib/services/sentiment_service.dart
@@ -528,26 +501,25 @@ final sentiment = await SentimentService.analyze(content);
 // Stocker dans le message ou envoyer au pipeline Big Data
 ```
 
----
+12. Idées pour aller plus vite 🚀
 
-## 12. Idées pour aller plus vite 🚀
+Idée 1 — Réunion de 15 min pour aligner les interfaces
+Problème : Chacun travaille de son côté et les noms de champs JSON peuvent ne pas correspondre.  
+Solution : Organiser une réunion rapide où Emmanuel partage son Postman/Swagger avec les endpoints exacts. Firmin adapte en 10 minutes.
 
-### Idée 1 — Réunion de 15 min pour aligner les interfaces
-**Problème :** Chacun travaille de son côté et les noms de champs JSON peuvent ne pas correspondre.  
-**Solution :** Organiser une réunion rapide où Emmanuel partage son Postman/Swagger avec les endpoints exacts. Firmin adapte en 10 minutes.
-
-### Idée 2 — Utiliser ngrok pour exposer les serveurs locaux
-**Problème :** Les serveurs de Michaël et Emmanuel tournent en local, pas accessibles depuis les autres machines.  
-**Solution :** Chacun installe [ngrok](https://ngrok.com) et expose son serveur :
+Idée 2 — Utiliser ngrok pour exposer les serveurs locaux
+Problème : Les serveurs de Michaël et Emmanuel tournent en local, pas accessibles depuis les autres machines.  
+Solution : Chacun installe [ngrok](https://ngrok.com) et expose son serveur :
 ```bash
 ngrok http 8000  # → donne une URL publique type https://abc123.ngrok.io
 ngrok http 3000  # → pour Node.js
 ```
 Firmin met ces URLs dans `app_constants.dart` → tout le monde peut tester immédiatement.
 
-### Idée 3 — Créer un fichier `.env` partagé
-**Problème :** Chaque fois qu'une URL change, il faut modifier le code.  
-**Solution :** Créer un fichier `lib/constants/env.dart` que chacun remplit avec ses vraies valeurs :
+
+Idée 3 — Créer un fichier `.env` partagé
+Problème : Chaque fois qu'une URL change, il faut modifier le code.  
+Solution : Créer un fichier `lib/constants/env.dart` que chacun remplit avec ses vraies valeurs :
 ```dart
 // env.dart (ne pas committer sur GitHub)
 class Env {
@@ -557,12 +529,12 @@ class Env {
 }
 ```
 
-### Idée 4 — Mode démo déjà en place → ne pas bloquer la soutenance
-**Avantage :** L'app fonctionne déjà avec des données mockées.  
+Idée 4 — Mode démo déjà en place → ne pas bloquer la soutenance
+Avantage : L'app fonctionne déjà avec des données mockées.  
 Si un serveur n'est pas prêt le jour de la soutenance, l'app tourne quand même.  
 Le jury voit une app fonctionnelle — on explique que le vrai backend est en cours de déploiement.
 
-### Idée 5 — Tester l'intégration par couches
+Idée 5 — Tester l'intégration par couches
 Plutôt que d'attendre que tout soit prêt, tester dans cet ordre :
 ```
 1. Tester login seul (Emmanuel) → si ça marche, passer à la suite
@@ -571,11 +543,11 @@ Plutôt que d'attendre que tout soit prêt, tester dans cet ordre :
 4. Tester tout ensemble
 ```
 
-### Idée 6 — Kamélia peut livrer les couleurs en premier
-Les wireframes prennent du temps, mais la **palette de couleurs** peut être livrée en 5 minutes.  
+Idée 6 — Kamélia peut livrer les couleurs en premier
+Les wireframes prennent du temps, mais la palette de couleurs peut être livrée en 5 minutes.  
 Firmin peut appliquer les couleurs immédiatement dans `app_colors.dart` et `app_theme.dart` sans attendre les wireframes complets.
 
-### Idée 7 — Partager le repo GitHub avec l'équipe
+dée 7 — Partager le repo GitHub avec l'équipe
 Ajouter les camarades comme collaborateurs sur le repo :
 ```
 https://github.com/firmin-del/connectx-flutter
@@ -583,6 +555,5 @@ https://github.com/firmin-del/connectx-flutter
 ```
 Chacun peut voir le code, comprendre les interfaces attendues, et adapter son serveur en conséquence.
 
----
 
-*SAMBIENI Firmin — Dev Mobile — Projet NovaX — Mai 2026*
+SAMBIENI Firmin — Dev Mobile — Projet NovaX — Mai 2026
