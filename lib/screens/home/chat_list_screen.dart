@@ -269,10 +269,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
       // ── Bouton Nouveau Chat ────────────────────────────────────
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Ouvrir l'écran de sélection de contacts
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Nouveau chat — bientôt disponible")),
-          );
+          // Navigue vers l'écran de sélection de contacts NovaX
+          context.go('/contacts');
         },
         child: const Icon(Icons.add_comment),
       ),

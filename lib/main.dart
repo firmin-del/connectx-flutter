@@ -44,6 +44,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/home/chat_list_screen.dart';
 import 'screens/chat/chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/contacts/contacts_screen.dart'; // Ajout Étape 03
 
 void main() async {
   // Étape 1 : Flutter doit être initialisé avant tout appel natif
@@ -113,6 +114,12 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/profile',
       builder: (context, state) => const ProfileScreen(),
+    ),
+
+    // Contacts : sélection d'un contact pour démarrer une conversation
+    GoRoute(
+      path: '/contacts',
+      builder: (context, state) => const ContactsScreen(),
     ),
   ],
 );
