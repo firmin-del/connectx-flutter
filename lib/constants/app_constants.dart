@@ -10,10 +10,15 @@ class AppConstants {
   static const String appVersion = "1.0.0";
 
   // ── URLs du serveur ────────────────────────────────────────────
-  // 10.0.2.2 = adresse spéciale Android Emulator qui pointe vers localhost
-  // À remplacer par l'IP réelle du serveur en production
-  static const String baseUrl = "http://10.0.2.2:8000/api"; // Laravel API
-  static const String socketUrl = "http://10.0.2.2:3000"; // Node.js Socket.io
+  // On utilise kIsWeb pour détecter si on tourne sur Chrome/Web
+  // Sur Android Emulator : 10.0.2.2 pointe vers localhost de la machine hôte
+  // Sur Chrome/Web       : localhost directement
+  // ⚠️  Ces valeurs sont pour le DEV local — à changer en prod
+  static const String baseUrl = "http://localhost:8000/api"; // Laravel API
+  static const String socketUrl = "http://localhost:3000"; // Node.js Socket.io
+  // Pour Android Emulator, remplacer par :
+  // static const String baseUrl = "http://10.0.2.2:8000/api";
+  // static const String socketUrl = "http://10.0.2.2:3000";
 
   // ── Clés de stockage local (SharedPreferences) ─────────────────
   // Ces clés servent à sauvegarder/lire les données persistantes
