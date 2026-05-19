@@ -31,22 +31,38 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  go_router: ^17.2.3
-  dio: ^5.9.2
-  url_strategy: ^0.3.0
-  intl: ^0.20.2
-  flutter_bloc: ^9.1.1
-  sqflite: ^2.4.2+1
-  equatable: ^2.0.8
-  shared_preferences: ^2.5.5
-  permission_handler: ^12.0.1
-  path: ^1.9.1
-  path_provider: ^2.1.5
-  google_fonts: ^8.1.0
-  image_picker: ^1.2.2
+  # ── UI & Navigation ──────────────────────────────────────────────
+  cupertino_icons: ^1.0.8        # Icônes style iOS
+  google_fonts: ^8.1.0           # Polices Google (Questrial pour NovaX)
+  go_router: ^17.2.3             # Navigation déclarative entre écrans
+
+  # ── Gestion d'état (BLoC/Cubit) ──────────────────────────────────
+  flutter_bloc: ^9.1.1           # Pattern BLoC : sépare UI et logique métier
+  equatable: ^2.0.8              # Comparaison d'objets pour les States BLoC
+
+  # ── Réseau & API ─────────────────────────────────────────────────
+  dio: ^5.9.2                    # Client HTTP pour appels API REST (Laravel)
+  url_strategy: ^0.3.0           # URLs propres sur le web (sans #)
+
+  # ── Temps réel (Socket.io) ───────────────────────────────────────
+  socket_io_client: ^2.0.3+1     # Connexion WebSocket vers serveur Node.js
+
+  # ── Base de données locale (Hive) ────────────────────────────────
+  # Hive remplace sqflite : plus rapide, NoSQL, parfait pour messages offline
+  hive: ^2.2.3                   # Base de données clé-valeur locale (NoSQL)
+  hive_flutter: ^1.1.0           # Intégration Hive avec Flutter
+
+  # ── Stockage simple ──────────────────────────────────────────────
+  shared_preferences: ^2.5.5     # Stockage token JWT, préférences utilisateur
+  path_provider: ^2.1.5          # Accès aux dossiers système (pour Hive)
+
+  # ── Médias & Permissions ─────────────────────────────────────────
+  image_picker: ^1.2.2           # Sélection/capture photo pour envoi dans chat
+  permission_handler: ^12.0.1    # Gestion permissions (caméra, contacts, notifs)
+
+  # ── Utilitaires ──────────────────────────────────────────────────
+  intl: ^0.20.2                  # Formatage dates/heures (ex: "14:32", "Hier")
+  path: ^1.9.1                   # Manipulation de chemins de fichiers
 
 dev_dependencies:
   flutter_test:
