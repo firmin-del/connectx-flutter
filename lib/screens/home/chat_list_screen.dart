@@ -280,8 +280,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           ),
                           onTap: () {
                             context.read<ChatCubit>().markChatAsRead(chat.id);
+                            final groupParam = chat.isGroup
+                                ? '&group=true'
+                                : '';
                             context.go(
-                              '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}',
+                              '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}$groupParam',
                             );
                           },
                         ),

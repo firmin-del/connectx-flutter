@@ -43,6 +43,8 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/home/chat_list_screen.dart';
 import 'screens/chat/chat_screen.dart';
+import 'screens/chat/group_info_screen.dart';
+import 'models/chat_model.dart'; // Pour GroupInfoScreen extra
 import 'screens/profile/profile_screen.dart';
 import 'screens/contacts/contacts_screen.dart';
 import 'screens/contacts/create_group_screen.dart'; // Nouveau // Ajout Étape 03
@@ -107,7 +109,12 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final chatId = state.pathParameters['chatId'] ?? '';
         final contactName = state.uri.queryParameters['name'] ?? 'Contact';
-        return ChatScreen(chatId: chatId, contactName: contactName);
+        final isGroup = state.uri.queryParameters['group'] == 'true';
+        return ChatScreen(
+          chatId: chatId,
+          contactName: contactName,
+          isGroup: isGroup,
+        );
       },
     ),
 
@@ -127,6 +134,16 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/create-group',
       builder: (context, state) => const CreateGroupScreen(),
+    ),
+
+    // Infos du groupe (modifier nom, membres, quitter)
+    GoRoute(
+      path: '/group-info',
+      builder: (context, state) {
+        final chat = state.extra as ChatModel?;
+        if (chat == null) return const SizedBox.shrink();
+        return GroupInfoScreen(chat: chat);
+      },
     ),
   ],
 );

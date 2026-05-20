@@ -166,18 +166,51 @@ class AuthController extends Controller
 
     // ── GET /api/me ───────────────────────────────────────────────
 
-    /**
-     * Retourne le profil de l'utilisateur actuellement connecté.
-     *
-     * Header requis : Authorization: Bearer {token}
-     *
-     * Réponse (200) :
-     *   { "user": { ... } }
-     */
     public function me(Request $request): JsonResponse
     {
         return response()->json([
             'user' => $this->formatUser($request->user()),
+        ], 200);
+    }
+
+    // ── PUT /api/me ───────────────────────────────────────────────
+
+    /**
+     * Met à jour le profil de l'utilisateur connecté.
+     * Corps : { "name": "...", "phone_number": "..." }
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $request->validate([
+            'name'         => ['sometimes', 'string', 'min:2', 'max:255'],
+            'phone_number' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $user = $request->user();
+        $user->update($request->only(['name', 'phone_number']));
+
+        return response()->json([
+            'user' => $this->formatUser($user->fresh()),
+        ], 200);
+    }
+
+    // ── DELETE /api/me ────────────────────────────────────────────
+
+    /**
+     * Supprime définitivement le compte de l'utilisateur.
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Révoque tous les tokens
+        $user->tokens()->delete();
+
+        // Supprime le compte
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Compte supprimé avec succès.',
         ], 200);
     }
 

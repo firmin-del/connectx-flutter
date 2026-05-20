@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -21,15 +22,18 @@ import '../../services/socket_service.dart';
 import '../../cubits/login/auth_cubit.dart';
 import '../../cubits/login/chat_cubit.dart';
 import '../../repositories/chat_repository.dart';
+import '../../models/chat_model.dart'; // Pour GroupInfoScreen
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
   final String contactName;
+  final bool isGroup; // true si c'est un groupe
 
   const ChatScreen({
     super.key,
     required this.chatId,
     this.contactName = 'Contact',
+    this.isGroup = false,
   });
 
   @override
@@ -302,6 +306,28 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ],
       ),
       actions: [
+        // Bouton info groupe (si c'est un groupe)
+        if (widget.isGroup)
+          IconButton(
+            icon: const Icon(Icons.info_outline, color: AppColors.textPrimary),
+            tooltip: "Infos du groupe",
+            onPressed: () {
+              // Navigue vers l'écran de gestion du groupe
+              // On passe le ChatModel via extra
+              final chats = context.read<ChatCubit>().state.chats;
+              final chat = chats.firstWhere(
+                (c) => c.id == widget.chatId,
+                orElse: () => ChatModel(
+                  id: widget.chatId,
+                  participantIds: [],
+                  name: widget.contactName,
+                  lastActivity: DateTime.now(),
+                  isGroup: true,
+                ),
+              );
+              context.go('/group-info', extra: chat);
+            },
+          ),
         IconButton(
           icon: const Icon(Icons.call, color: AppColors.textPrimary),
           onPressed: () => _showComingSoon("Appel audio"),

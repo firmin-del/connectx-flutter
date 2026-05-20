@@ -40,22 +40,24 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // ── Authentification ──────────────────────────────────────────
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
+    Route::put('/me',      [AuthController::class, 'updateProfile']); // Modifier profil
+    Route::delete('/me',   [AuthController::class, 'deleteAccount']); // Supprimer compte
 
     // ── Contacts ──────────────────────────────────────────────────
-    // GET /api/contacts → liste tous les utilisateurs NovaX
     Route::get('/contacts', [ContactController::class, 'index']);
 
     // ── Conversations ─────────────────────────────────────────────
-    // GET  /api/chats         → liste des conversations de l'utilisateur
-    // POST /api/chats         → créer une nouvelle conversation
-    Route::get('/chats',  [ChatController::class, 'index']);
-    Route::post('/chats', [ChatController::class, 'store']);
+    Route::get('/chats',        [ChatController::class, 'index']);
+    Route::post('/chats',       [ChatController::class, 'store']);
+    Route::put('/chats/{id}',   [ChatController::class, 'update']);   // Modifier groupe
+    Route::delete('/chats/{id}',[ChatController::class, 'destroy']);  // Quitter/supprimer
+
+    // ── Membres du groupe ─────────────────────────────────────────
+    Route::post('/chats/{id}/participants',          [ChatController::class, 'addParticipant']);
+    Route::delete('/chats/{id}/participants/{userId}',[ChatController::class, 'removeParticipant']);
 
     // ── Messages ──────────────────────────────────────────────────
-    // GET  /api/chats/{id}/messages      → messages paginés d'un chat
-    // POST /api/chats/{id}/messages      → envoyer un message
-    // PUT  /api/chats/{id}/messages/read → marquer comme lus
-    Route::get('/chats/{id}/messages',       [ChatController::class, 'messages']);
-    Route::post('/chats/{id}/messages',      [ChatController::class, 'sendMessage']);
-    Route::put('/chats/{id}/messages/read',  [ChatController::class, 'markAsRead']);
+    Route::get('/chats/{id}/messages',      [ChatController::class, 'messages']);
+    Route::post('/chats/{id}/messages',     [ChatController::class, 'sendMessage']);
+    Route::put('/chats/{id}/messages/read', [ChatController::class, 'markAsRead']);
 });

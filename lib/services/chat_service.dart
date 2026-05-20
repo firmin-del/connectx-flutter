@@ -147,6 +147,68 @@ class ChatService {
     }
   }
 
+  // ── Gestion du groupe ────────────────────────────────────────
+
+  /// Modifie le nom d'un groupe.
+  static Future<Map<String, dynamic>> updateGroup({
+    required String chatId,
+    required String name,
+  }) async {
+    try {
+      final response = await _api.put('/chats/$chatId', data: {'name': name});
+      if (response.statusCode == 200) {
+        return response.data['chat'] as Map<String, dynamic>;
+      }
+      throw Exception(
+        response.data['message'] ?? AppConstants.defaultErrorMessage,
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// Quitte ou supprime une conversation.
+  static Future<void> leaveOrDeleteChat(String chatId) async {
+    try {
+      await _api.delete('/chats/$chatId');
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// Ajoute un membre à un groupe.
+  static Future<Map<String, dynamic>> addParticipant({
+    required String chatId,
+    required String userId,
+  }) async {
+    try {
+      final response = await _api.post(
+        '/chats/$chatId/participants',
+        data: {'user_id': userId},
+      );
+      if (response.statusCode == 200) {
+        return response.data['chat'] as Map<String, dynamic>;
+      }
+      throw Exception(
+        response.data['message'] ?? AppConstants.defaultErrorMessage,
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  /// Retire un membre d'un groupe.
+  static Future<void> removeParticipant({
+    required String chatId,
+    required String userId,
+  }) async {
+    try {
+      await _api.delete('/chats/$chatId/participants/$userId');
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
   static String _handleError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:

@@ -20,6 +20,112 @@ use Illuminate\Http\Request;
  */
 class ChatController extends Controller
 {
+    // ── PUT /api/chats/{id} ───────────────────────────────────────
+
+    /**
+     * Modifie le nom d'un groupe.
+     * Seul le créateur peut modifier le groupe.
+     */
+    public function update(Request $request, int $chatId): JsonResponse
+    {
+        $request->validate([
+            'name' => ['required', 'string', 'min:1', 'max:255'],
+        ]);
+
+        $currentUser = $request->user();
+        $chat = $currentUser->chats()->findOrFail($chatId);
+
+        if (!$chat->is_group) {
+            return response()->json(['message' => 'Seuls les groupes peuvent être modifiés.'], 422);
+        }
+
+        if ($chat->created_by !== $currentUser->id) {
+            return response()->json(['message' => 'Seul le créateur peut modifier le groupe.'], 403);
+        }
+
+        $chat->update(['name' => $request->name]);
+        $chat->load(['participants', 'lastMessage']);
+
+        return response()->json([
+            'chat' => $this->formatChat($chat, $currentUser->id),
+        ], 200);
+    }
+
+    // ── DELETE /api/chats/{id} ────────────────────────────────────
+
+    /**
+     * Quitte une conversation (ou la supprime si créateur du groupe).
+     */
+    public function destroy(Request $request, int $chatId): JsonResponse
+    {
+        $currentUser = $request->user();
+        $chat = $currentUser->chats()->findOrFail($chatId);
+
+        if ($chat->is_group && $chat->created_by === $currentUser->id) {
+            // Créateur du groupe → supprime le groupe entier
+            $chat->participants()->detach();
+            $chat->messages()->delete();
+            $chat->delete();
+            return response()->json(['message' => 'Groupe supprimé.'], 200);
+        }
+
+        // Sinon → quitte simplement la conversation
+        $chat->participants()->detach($currentUser->id);
+        return response()->json(['message' => 'Vous avez quitté la conversation.'], 200);
+    }
+
+    // ── POST /api/chats/{id}/participants ─────────────────────────
+
+    /**
+     * Ajoute un membre à un groupe.
+     * Corps : { "user_id": 5 }
+     */
+    public function addParticipant(Request $request, int $chatId): JsonResponse
+    {
+        $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $currentUser = $request->user();
+        $chat = $currentUser->chats()->findOrFail($chatId);
+
+        if (!$chat->is_group) {
+            return response()->json(['message' => 'Impossible d\'ajouter un membre à une conversation privée.'], 422);
+        }
+
+        // Vérifie que le membre n'est pas déjà dans le groupe
+        if ($chat->participants()->where('user_id', $request->user_id)->exists()) {
+            return response()->json(['message' => 'Cet utilisateur est déjà membre du groupe.'], 422);
+        }
+
+        $chat->participants()->attach($request->user_id);
+        $chat->load(['participants', 'lastMessage']);
+
+        return response()->json([
+            'chat' => $this->formatChat($chat, $currentUser->id),
+        ], 200);
+    }
+
+    // ── DELETE /api/chats/{id}/participants/{userId} ──────────────
+
+    /**
+     * Retire un membre d'un groupe.
+     * Seul le créateur peut retirer des membres.
+     */
+    public function removeParticipant(Request $request, int $chatId, int $userId): JsonResponse
+    {
+        $currentUser = $request->user();
+        $chat = $currentUser->chats()->findOrFail($chatId);
+
+        if ($chat->created_by !== $currentUser->id && $userId !== $currentUser->id) {
+            return response()->json(['message' => 'Action non autorisée.'], 403);
+        }
+
+        $chat->participants()->detach($userId);
+
+        return response()->json(['message' => 'Membre retiré du groupe.'], 200);
+    }
+
     // ── GET /api/chats ────────────────────────────────────────────
 
     /**
