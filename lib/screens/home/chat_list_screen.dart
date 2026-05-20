@@ -1,16 +1,5 @@
 // chat_list_screen.dart
-// Écran principal : liste de toutes les conversations de l'utilisateur.
-//
-// Branché sur ChatCubit (Étape 03) pour afficher les vraies données.
-// Affiche des données mockées si le serveur n'est pas disponible.
-//
-// Fonctionnalités :
-//   - Liste des conversations triées par date (plus récente en haut)
-//   - Badge de messages non lus (cercle vert avec le nombre)
-//   - Aperçu du dernier message
-//   - Navigation vers ChatScreen au tap
-//   - Bouton profil dans l'AppBar
-//   - FAB pour créer une nouvelle conversation
+// Écran principal — liste des conversations avec recherche et rafraîchissement.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../cubits/login/chat_cubit.dart';
 import '../../cubits/login/auth_cubit.dart';
+import '../../theme/app_colors.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -27,100 +17,80 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
+  // Contrôle l'affichage de la barre de recherche
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
-    // Charge les conversations au démarrage de l'écran
-    // Le ChatCubit gère le chargement depuis l'API ou les données mockées
     context.read<ChatCubit>().loadChats();
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ── AppBar ─────────────────────────────────────────────────
-      appBar: AppBar(
-        title: Text(
-          'NovaX',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ),
-        actions: [
-          // Bouton recherche
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implémenter la recherche de conversations
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Recherche — bientôt disponible")),
-              );
-            },
-          ),
-          // Menu contextuel
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'profile') context.go('/profile');
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 8),
-                    Text('Mon profil'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-
-      // ── Corps : liste des conversations ────────────────────────
+      backgroundColor: AppColors.background,
+      appBar: _buildAppBar(),
       body: BlocBuilder<ChatCubit, ChatState>(
         builder: (context, state) {
-          // Récupère l'ID de l'utilisateur connecté pour afficher les noms
           final currentUserId = context.read<AuthCubit>().state.user?.id ?? '';
 
-          // ── État de chargement ─────────────────────────────────
           if (state.status == ChatLoadStatus.loading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            );
           }
 
-          // ── Liste vide ─────────────────────────────────────────
-          if (state.chats.isEmpty) {
+          // Filtre les chats selon la recherche
+          final chats = _searchQuery.isEmpty
+              ? state.chats
+              : state.chats.where((chat) {
+                  final name = chat.participants.isNotEmpty
+                      ? chat.getDisplayName(currentUserId).toLowerCase()
+                      : '';
+                  final preview = chat.lastMessagePreview.toLowerCase();
+                  return name.contains(_searchQuery) ||
+                      preview.contains(_searchQuery);
+                }).toList();
+
+          if (chats.isEmpty && state.chats.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          if (chats.isEmpty && _searchQuery.isNotEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 80,
-                    color: Colors.grey.withValues(alpha: 0.5),
+                  const Icon(
+                    Icons.search_off,
+                    size: 64,
+                    color: AppColors.textSecondary,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    "Aucune conversation",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Appuie sur + pour démarrer une discussion",
-                    style: TextStyle(color: Colors.grey),
+                  Text(
+                    'Aucun résultat pour "$_searchQuery"',
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
               ),
             );
           }
 
-          // ── Bannière mode démo (si serveur non disponible) ─────
           return Column(
             children: [
-              // Affiche une bannière si on est en mode démo
+              // Bannière mode démo
               if (state.errorMessage.isNotEmpty)
                 Container(
                   width: double.infinity,
@@ -137,176 +107,341 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         color: Colors.orange,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        state.errorMessage,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange,
+                      Expanded(
+                        child: Text(
+                          state.errorMessage,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ),
+                      // Bouton rafraîchir
+                      TextButton(
+                        onPressed: () => context.read<ChatCubit>().loadChats(),
+                        child: const Text(
+                          "Réessayer",
+                          style: TextStyle(color: Colors.orange, fontSize: 12),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-              // ── Liste des conversations ────────────────────────
+              // Liste des conversations
               Expanded(
-                child: ListView.separated(
-                  itemCount: state.chats.length,
-                  separatorBuilder: (_, __) =>
-                      const Divider(height: 1, indent: 72),
-                  itemBuilder: (context, index) {
-                    final chat = state.chats[index];
-                    final displayName = chat.participants.isNotEmpty
-                        ? chat.getDisplayName(currentUserId)
-                        : 'Contact ${index + 1}';
+                child: RefreshIndicator(
+                  // Pull-to-refresh pour recharger les conversations
+                  color: AppColors.primary,
+                  onRefresh: () => context.read<ChatCubit>().loadChats(),
+                  child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: chats.length,
+                    separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      color: AppColors.divider,
+                      indent: 72,
+                    ),
+                    itemBuilder: (context, index) {
+                      final chat = chats[index];
+                      final displayName = chat.participants.isNotEmpty
+                          ? chat.getDisplayName(currentUserId)
+                          : chat.name ?? 'Conversation ${index + 1}';
 
-                    // Animation slide-in décalée pour chaque item
-                    // Chaque item apparaît avec un délai de 50ms * index
-                    return TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: Duration(milliseconds: 300 + (index * 50)),
-                      curve: Curves.easeOut,
-                      builder: (context, value, child) {
-                        return Opacity(
+                      return TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: Duration(milliseconds: 250 + (index * 40)),
+                        curve: Curves.easeOut,
+                        builder: (context, value, child) => Opacity(
                           opacity: value,
                           child: Transform.translate(
-                            // Slide depuis la droite
-                            offset: Offset(30 * (1 - value), 0),
+                            offset: Offset(20 * (1 - value), 0),
                             child: child,
                           ),
-                        );
-                      },
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
                         ),
-
-                        // ── Avatar ─────────────────────────────────
-                        leading: CircleAvatar(
-                          radius: 26,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.15),
-                          child: Text(
-                            // Initiale du nom
-                            displayName.isNotEmpty
-                                ? displayName[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
                           ),
-                        ),
-
-                        // ── Nom du contact ─────────────────────────
-                        title: Text(
-                          displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                        // ── Aperçu du dernier message ──────────────
-                        subtitle: Text(
-                          chat.lastMessagePreview,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-
-                        // ── Heure + Badge non-lu ───────────────────
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            // Heure du dernier message
-                            Text(
-                              _formatTime(chat.lastActivity),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: chat.unreadCount > 0
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            // Badge messages non lus
-                            if (chat.unreadCount > 0)
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 20,
-                                  minHeight: 20,
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: AppColors.primary.withValues(
+                                  alpha: 0.15,
                                 ),
                                 child: Text(
-                                  chat.unreadCount > 99
-                                      ? '99+'
-                                      : '${chat.unreadCount}',
+                                  displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
+                                      : '?',
                                   style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
                                   ),
-                                  textAlign: TextAlign.center,
                                 ),
                               ),
-                          ],
+                              // Indicateur en ligne (vert)
+                              if (_isParticipantOnline(chat, currentUserId))
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.online,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.background,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          title: Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Row(
+                            children: [
+                              if (chat.isGroup)
+                                const Padding(
+                                  padding: EdgeInsets.only(right: 4),
+                                  child: Icon(
+                                    Icons.group,
+                                    size: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              Expanded(
+                                child: Text(
+                                  chat.lastMessagePreview,
+                                  style: TextStyle(
+                                    color: chat.unreadCount > 0
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: chat.unreadCount > 0
+                                        ? FontWeight.w500
+                                        : FontWeight.normal,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _formatTime(chat.lastActivity),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: chat.unreadCount > 0
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (chat.unreadCount > 0)
+                                Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 20,
+                                    minHeight: 20,
+                                  ),
+                                  child: Text(
+                                    chat.unreadCount > 99
+                                        ? '99+'
+                                        : '${chat.unreadCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          onTap: () {
+                            context.read<ChatCubit>().markChatAsRead(chat.id);
+                            context.go(
+                              '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}',
+                            );
+                          },
                         ),
-
-                        // ── Navigation vers le chat ────────────────
-                        onTap: () {
-                          context.read<ChatCubit>().markChatAsRead(chat.id);
-                          context.go(
-                            '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}',
-                          );
-                        },
-                      ),
-                    ); // Ferme TweenAnimationBuilder
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
           );
         },
       ),
-
-      // ── Bouton Nouveau Chat ────────────────────────────────────
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigue vers l'écran de sélection de contacts NovaX
-          context.go('/contacts');
-        },
-        child: const Icon(Icons.add_comment),
+        backgroundColor: AppColors.primary,
+        onPressed: () => context.go('/contacts'),
+        child: const Icon(Icons.add_comment, color: Colors.white),
       ),
     );
   }
 
-  /// Formate la date/heure du dernier message pour l'affichage.
-  /// - Aujourd'hui → "14:32"
-  /// - Cette semaine → "Lun."
-  /// - Plus ancien → "12/05"
+  // ── AppBar avec recherche ─────────────────────────────────────
+
+  PreferredSizeWidget _buildAppBar() {
+    if (_isSearching) {
+      return AppBar(
+        backgroundColor: AppColors.surface,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () {
+            setState(() {
+              _isSearching = false;
+              _searchController.clear();
+            });
+          },
+        ),
+        title: TextField(
+          controller: _searchController,
+          autofocus: true,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: const InputDecoration(
+            hintText: "Rechercher une conversation...",
+            hintStyle: TextStyle(color: AppColors.textSecondary),
+            border: InputBorder.none,
+          ),
+        ),
+      );
+    }
+
+    return AppBar(
+      backgroundColor: AppColors.surface,
+      title: const Text(
+        'NovaX',
+        style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+      ),
+      actions: [
+        // Bouton recherche
+        IconButton(
+          icon: const Icon(Icons.search, color: AppColors.textPrimary),
+          onPressed: () => setState(() => _isSearching = true),
+        ),
+        // Menu
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
+          color: AppColors.surface,
+          onSelected: (value) {
+            if (value == 'profile') context.go('/profile');
+            if (value == 'refresh') context.read<ChatCubit>().loadChats();
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(
+              value: 'profile',
+              child: Row(
+                children: [
+                  Icon(Icons.person_outline, color: AppColors.textPrimary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Mon profil',
+                    style: TextStyle(color: AppColors.textPrimary),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'refresh',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, color: AppColors.textPrimary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Actualiser',
+                    style: TextStyle(color: AppColors.textPrimary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── État vide ─────────────────────────────────────────────────
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 80,
+            color: AppColors.textSecondary.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Aucune conversation",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Appuie sur + pour démarrer une discussion",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.go('/contacts'),
+            icon: const Icon(Icons.add),
+            label: const Text("Nouvelle conversation"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+
+  /// Vérifie si l'autre participant du chat est en ligne.
+  bool _isParticipantOnline(chat, String currentUserId) {
+    if (chat.participants.isEmpty) return false;
+    final other = chat.participants.firstWhere(
+      (p) => p.id != currentUserId,
+      orElse: () => chat.participants.first,
+    );
+    return other.isOnline;
+  }
+
   String _formatTime(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final messageDay = DateTime(dateTime.year, dateTime.month, dateTime.day);
 
     if (messageDay == today) {
-      // Aujourd'hui : affiche l'heure
       return DateFormat('HH:mm').format(dateTime);
     } else if (now.difference(dateTime).inDays < 7) {
-      // Cette semaine : affiche le jour abrégé
       return DateFormat('E', 'fr_FR').format(dateTime);
     } else {
-      // Plus ancien : affiche la date
       return DateFormat('dd/MM').format(dateTime);
     }
   }

@@ -1,19 +1,19 @@
-# 🔐 NovaX Realtime — Livrable RSI
+🔐 NovaX Realtime — Livrable RSI
 > MIWANOU Michaël — Filière Réseaux, Sécurité & Infrastructures  
 > Projet NovaX — Méthode Forge-IMeN — Mai 2026
 
----
 
-## Rôle dans le projet
+
+Rôle dans le projet
 
 Michaël est responsable de :
-- **Serveur Node.js + Socket.io** — messagerie temps réel (port 3000)
-- **Chiffrement E2EE** — AES-256 bout en bout
-- **Infrastructure** — Nginx reverse proxy + TLS 1.3 + Fail2ban
+- Serveur Node.js + Socket.io — messagerie temps réel (port 3000)
+- Chiffrement E2EE — AES-256 bout en bout
+- Infrastructure — Nginx reverse proxy + TLS 1.3 + Fail2ban
 
----
 
-## Structure de ce dossier
+
+Structure de ce dossier
 
 ```
 novax_realtime/
@@ -28,16 +28,16 @@ novax_realtime/
     └── novax.conf             → Configuration Nginx reverse proxy
 ```
 
----
 
-## Ce que Firmin (Dev Mobile) attend de Michaël
+
+Ce que Firmin (Dev Mobile) attend de Michaël
 
 ```dart
 // Dans app_constants.dart — à remplir par Michaël :
 static const String socketUrl = "http://IP_MICHAEL:3000";
 ```
 
-**Événements Socket.io attendus :**
+Événements Socket.io attendus :**
 
 | Événement | Direction | Données |
 |---|---|---|

@@ -19,6 +19,7 @@ import '../../services/sentiment_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/socket_service.dart';
 import '../../cubits/login/auth_cubit.dart';
+import '../../cubits/login/chat_cubit.dart';
 import '../../repositories/chat_repository.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -650,7 +651,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _saveMessageToApi(text, currentUserId);
   }
 
-  /// Sauvegarde le message dans la base de données Laravel.
+  /// Sauvegarde le message dans la base de données Laravel
+  /// et rafraîchit la liste des conversations.
   Future<void> _saveMessageToApi(String text, String senderId) async {
     try {
       final chatRepository = context.read<ChatRepository>();
@@ -659,8 +661,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         content: text,
         type: 'text',
       );
+      // Rafraîchit la liste des conversations pour mettre à jour l'aperçu
+      if (mounted) {
+        context.read<ChatCubit>().refreshChats();
+      }
     } catch (_) {
-      // Silencieux — Socket.io a déjà transmis le message
+      // Silencieux
     }
   }
 

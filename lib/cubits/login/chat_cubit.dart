@@ -132,6 +132,25 @@ class ChatCubit extends Cubit<ChatState> {
     emit(state.copyWith(chats: updatedChats));
   }
 
+  // ── Rafraîchissement ──────────────────────────────────────────
+
+  /// Recharge les conversations depuis l'API.
+  /// Appelé après envoi d'un message ou pull-to-refresh.
+  Future<void> refreshChats() async {
+    try {
+      final chats = await chatRepository.fetchChatsFromApi();
+      emit(
+        state.copyWith(
+          status: ChatLoadStatus.loaded,
+          chats: chats,
+          errorMessage: '',
+        ),
+      );
+    } catch (_) {
+      // Garde les données actuelles si le refresh échoue
+    }
+  }
+
   // ── Données mockées ───────────────────────────────────────────
 
   /// Génère des conversations fictives pour le développement.
