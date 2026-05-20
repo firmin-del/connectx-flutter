@@ -44,7 +44,8 @@ import 'screens/auth/register_screen.dart';
 import 'screens/home/chat_list_screen.dart';
 import 'screens/chat/chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
-import 'screens/contacts/contacts_screen.dart'; // Ajout Étape 03
+import 'screens/contacts/contacts_screen.dart';
+import 'screens/contacts/create_group_screen.dart'; // Nouveau // Ajout Étape 03
 
 void main() async {
   // Étape 1 : Flutter doit être initialisé avant tout appel natif
@@ -120,6 +121,12 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/contacts',
       builder: (context, state) => const ContactsScreen(),
+    ),
+
+    // Création de groupe
+    GoRoute(
+      path: '/create-group',
+      builder: (context, state) => const CreateGroupScreen(),
     ),
   ],
 );

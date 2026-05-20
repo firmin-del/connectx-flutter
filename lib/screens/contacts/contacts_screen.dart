@@ -199,6 +199,36 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ),
         ),
 
+        // ── Bouton Créer un groupe ─────────────────────────────
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.group_add, color: AppColors.primary),
+          ),
+          title: const Text(
+            "Créer un groupe",
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: const Text(
+            "Ajouter plusieurs contacts",
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+          onTap: () => context.go('/create-group'),
+        ),
+        const Divider(height: 1, color: AppColors.divider, indent: 72),
+
         // ── Liste des contacts ─────────────────────────────────
         Expanded(
           child: _filtered.isEmpty
