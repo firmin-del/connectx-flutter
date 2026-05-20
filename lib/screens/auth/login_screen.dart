@@ -1,15 +1,11 @@
-/// ============================================================
-/// login_screen.dart
-/// Écran de connexion utilisateur.
-///
-/// StatefulWidget car on a besoin de :
-///   - TextEditingControllers pour lire les champs email/password
-///   - setState pour afficher/masquer le mot de passe
-///
-/// Connecté au LoginCubit via BlocListener + BlocBuilder :
-///   - BlocListener : réagit aux changements (redirection, SnackBar)
-///   - BlocBuilder  : reconstruit le bouton selon l'état (loading/idle)
-/// ============================================================
+// login_screen.dart
+// Écran de connexion — design Kamélia v1.0
+//
+// Polissage UI :
+//   - Effet shake sur le formulaire en cas d'erreur
+//   - Animation fade-in du contenu au chargement
+//   - Bouton avec spinner pendant la requête API
+//   - Champs avec style Kamélia (fond surface, focus rouge)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import '../../cubits/login/login_cubit.dart';
 import '../../cubits/login/login_state.dart';
 import '../../constants/app_constants.dart';
+import '../../theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,63 +22,88 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  // Contrôleurs pour lire le texte saisi dans chaque champ
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  // Clé du formulaire pour la validation
   final _formKey = GlobalKey<FormState>();
-
-  // Contrôle la visibilité du mot de passe (icône œil)
   bool _obscurePassword = true;
+
+  // Contrôleur pour l'animation shake sur erreur
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Animation shake : le formulaire tremble horizontalement sur erreur
+    // Durée : 400ms — 4 oscillations rapides
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    // Tween qui oscille : 0 → 10 → -10 → 10 → -10 → 0
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: 10), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: 10, end: -10), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 10, end: -10), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -10, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
+  }
 
   @override
   void dispose() {
-    // Libère les contrôleurs quand l'écran est détruit (évite les fuites mémoire)
     _emailController.dispose();
     _passwordController.dispose();
+    _shakeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<LoginCubit, LoginState>(
-      // BlocListener écoute les changements d'état et réagit sans rebuild
       listener: (context, state) {
         if (state.loginStatus == LoginStatus.loaded) {
-          // Connexion réussie → redirige vers la liste des conversations
           context.go('/home');
         } else if (state.loginStatus == LoginStatus.error) {
-          // Erreur → affiche un message en bas de l'écran
+          // Déclenche l'animation shake sur erreur
+          _shakeController.forward(from: 0);
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.errorMessage),
-              backgroundColor: Colors.red.shade700,
+              backgroundColor: AppColors.error,
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           );
         }
       },
       child: Scaffold(
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: SingleChildScrollView(
-            // Évite l'overflow quand le clavier s'ouvre
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0),
             child: Form(
               key: _formKey,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 70),
 
-                  // ── Logo ──────────────────────────────────────────
-                  // Cercle rouge avec icône [>] — design Kamélia
+                  // ── Logo rond rouge [>] ────────────────────────
                   Container(
                     width: 80,
                     height: 80,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -92,76 +114,136 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── Titre ─────────────────────────────────────────
+                  // ── Titre ─────────────────────────────────────
                   Text(
-                    AppConstants.appName,
+                    AppConstants.appName.toUpperCase(),
                     style: const TextStyle(
-                      fontSize: 36,
+                      fontSize: 32,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     "Connecte-toi pour continuer",
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 48),
 
-                  // ── Champ Email ───────────────────────────────────
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: "Email",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.email_outlined),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    // Désactive l'autocorrection pour les emails
-                    autocorrect: false,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return "L'email est obligatoire";
-                      }
-                      return null;
+                  // ── Formulaire avec effet shake ────────────────
+                  // AnimatedBuilder applique le shake sur tout le formulaire
+                  AnimatedBuilder(
+                    animation: _shakeAnimation,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(_shakeAnimation.value, 0),
+                        child: child,
+                      );
                     },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── Champ Mot de passe ────────────────────────────
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: "Mot de passe",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      // Bouton pour afficher/masquer le mot de passe
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                    child: Column(
+                      children: [
+                        // ── Champ Email ──────────────────────────
+                        TextFormField(
+                          controller: _emailController,
+                          style: const TextStyle(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: "Email",
+                            labelStyle: const TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.email_outlined,
+                              color: AppColors.textSecondary,
+                            ),
+                            filled: true,
+                            fillColor: AppColors.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 2,
+                              ),
+                            ),
+                            errorStyle: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return "L'email est obligatoire";
+                            }
+                            return null;
+                          },
                         ),
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                      ),
-                    ),
-                    obscureText: _obscurePassword,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Le mot de passe est obligatoire";
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 28),
+                        const SizedBox(height: 16),
 
-                  // ── Bouton Se connecter ───────────────────────────
-                  // BlocBuilder reconstruit uniquement ce bouton selon l'état
+                        // ── Champ Mot de passe ───────────────────
+                        TextFormField(
+                          controller: _passwordController,
+                          style: const TextStyle(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: "Mot de passe",
+                            labelStyle: const TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.lock_outline,
+                              color: AppColors.textSecondary,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: AppColors.textSecondary,
+                              ),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: AppColors.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 2,
+                              ),
+                            ),
+                            errorStyle: const TextStyle(
+                              color: AppColors.error,
+                              fontSize: 12,
+                            ),
+                          ),
+                          obscureText: _obscurePassword,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return "Le mot de passe est obligatoire";
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // ── Bouton SE CONNECTER ────────────────────────
                   BlocBuilder<LoginCubit, LoginState>(
                     builder: (context, state) {
                       final isLoading =
@@ -169,46 +251,54 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       return SizedBox(
                         width: double.infinity,
-                        height: 56,
+                        height: 52,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            elevation: 0,
                           ),
-                          // Désactive le bouton pendant le chargement
                           onPressed: isLoading ? null : _onLoginPressed,
                           child: isLoading
-                              // Spinner pendant la requête API
                               ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
+                                  width: 22,
+                                  height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     color: Colors.white,
                                   ),
                                 )
                               : const Text(
-                                  "Se connecter",
-                                  style: TextStyle(fontSize: 18),
+                                  "SE CONNECTER",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1,
+                                  ),
                                 ),
                         ),
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // ── Lien vers l'inscription ───────────────────────
+                  // ── Lien inscription ───────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Pas encore de compte ? "),
+                      const Text(
+                        "Pas de compte ? ",
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
                       GestureDetector(
                         onTap: () => context.go('/register'),
-                        child: Text(
+                        child: const Text(
                           "S'inscrire",
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -225,12 +315,8 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  /// Appelé quand l'utilisateur appuie sur "Se connecter".
-  /// Valide le formulaire puis appelle le LoginCubit.
   void _onLoginPressed() {
-    // Valide tous les champs (affiche les messages d'erreur si invalide)
     if (_formKey.currentState?.validate() ?? false) {
-      // Tous les champs sont valides → appelle le Cubit
       context.read<LoginCubit>().login(
         _emailController.text.trim(),
         _passwordController.text,
