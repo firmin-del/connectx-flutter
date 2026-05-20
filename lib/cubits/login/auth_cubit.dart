@@ -69,20 +69,15 @@ class AuthCubit extends Cubit<AuthState> {
     final isLoggedIn = await authRepository.isLoggedIn();
 
     if (isLoggedIn) {
-      // Token trouvé : l'utilisateur est considéré connecté
-      // TODO: Optionnel - vérifier la validité du token auprès du serveur
       final userId = await authRepository.getCurrentUserId();
+      // Connecte Socket.io dès le démarrage si déjà connecté
+      await _connectSocket();
       emit(
         AuthState.authenticated(
-          UserModel(
-            id: userId ?? '',
-            name: '', // Sera chargé depuis le profil
-            email: '',
-          ),
+          UserModel(id: userId ?? '', name: '', email: ''),
         ),
       );
     } else {
-      // Pas de token : l'utilisateur doit se connecter
       emit(AuthState.unauthenticated());
     }
   }

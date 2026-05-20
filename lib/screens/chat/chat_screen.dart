@@ -1,23 +1,24 @@
 // chat_screen.dart
 // Écran de conversation — design Kamélia v1.0
 //
-// Intégration Ulrich (Big Data & IA) :
-//   - Analyse de sentiment avant envoi (SentimentService)
-//   - Emoji de sentiment affiché sur les bulles (😊 😐 😠)
-//   - Pipeline Big Data (AnalyticsService.trackMessage)
+// Intégrations :
+//   - Ulrich (IA) : analyse de sentiment + emoji sur bulles + pipeline Big Data
+//   - Michaël (RSI) : Socket.io temps réel (actif si serveur connecté)
 //
-// Polissage UI :
-//   - Animation d'apparition des bulles (scale + fade, 250ms easeOut)
-//   - Indicateur "en train d'écrire" (3 points animés)
-//   - Scroll automatique vers le bas
+// Mode automatique :
+//   - Socket connecté → messages temps réel via MessageCubit
+//   - Socket non connecté → mode démo avec simulation
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../theme/app_colors.dart';
-import '../../services/sentiment_service.dart'; // IA Ulrich
-import '../../services/analytics_service.dart'; // Big Data Ulrich
+import '../../services/sentiment_service.dart';
+import '../../services/analytics_service.dart';
+import '../../services/socket_service.dart';
+import '../../cubits/login/auth_cubit.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -38,37 +39,35 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final ImagePicker _imagePicker = ImagePicker();
   final ScrollController _scrollController = ScrollController();
 
-  // Contrôleurs pour l'indicateur "en train d'écrire"
+  // Contrôleurs pour l'indicateur "en train d'écrire" (3 points Kamélia)
   late AnimationController _typingDot1;
   late AnimationController _typingDot2;
   late AnimationController _typingDot3;
 
   bool _isContactTyping = false;
+  bool _isAnalyzing = false; // true pendant l'analyse de sentiment
 
-  // true = analyse de sentiment en cours (affiche un loader sur le bouton envoi)
-  bool _isAnalyzing = false;
-
-  // Messages de démonstration avec sentiment
-  final List<_MockMessage> _messages = [
-    _MockMessage(
+  // Messages affichés (démo + messages reçus via Socket.io)
+  final List<_ChatMessage> _messages = [
+    _ChatMessage(
       text: "Salut ! Comment ça va ?",
       isMe: false,
       time: "14:30",
       sentiment: SentimentScore.positive,
     ),
-    _MockMessage(
+    _ChatMessage(
       text: "Très bien merci, et toi ?",
       isMe: true,
       time: "14:31",
       sentiment: SentimentScore.positive,
     ),
-    _MockMessage(
+    _ChatMessage(
       text: "Super ! Tu as vu le projet NovaX ?",
       isMe: false,
       time: "14:32",
       sentiment: SentimentScore.positive,
     ),
-    _MockMessage(
+    _ChatMessage(
       text: "Oui, on avance bien 🚀",
       isMe: true,
       time: "14:33",
@@ -80,6 +79,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _setupTypingAnimation();
+    _setupSocketCallbacks();
   }
 
   void _setupTypingAnimation() {
@@ -97,6 +97,69 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ── Branchement Socket.io (Michaël) ──────────────────────────
+
+  /// Configure les callbacks Socket.io pour recevoir les messages en temps réel.
+  /// Si le socket n'est pas connecté → mode démo automatique.
+  void _setupSocketCallbacks() {
+    // Rejoint la room de ce chat
+    SocketService.joinChat(widget.chatId);
+
+    // Callback : nouveau message reçu via Socket.io
+    SocketService.onNewMessage = (message) {
+      if (message.chatId == widget.chatId && mounted) {
+        // Analyse le sentiment du message reçu
+        SentimentService.analyze(message.content).then((sentiment) {
+          if (mounted) {
+            setState(() {
+              _messages.add(
+                _ChatMessage(
+                  text: message.content,
+                  isMe: false,
+                  time: _formatTime(message.timestamp),
+                  sentiment: sentiment,
+                ),
+              );
+              _isContactTyping = false;
+            });
+            _stopTypingAnimation();
+            _scrollToBottom();
+          }
+        });
+      }
+    };
+
+    // Callback : contact en train d'écrire
+    SocketService.onTyping = (chatId) {
+      if (chatId == widget.chatId && mounted) {
+        setState(() => _isContactTyping = true);
+        _startTypingAnimation();
+      }
+    };
+
+    // Callback : contact a arrêté d'écrire
+    SocketService.onStopTyping = (chatId) {
+      if (chatId == widget.chatId && mounted) {
+        setState(() => _isContactTyping = false);
+        _stopTypingAnimation();
+      }
+    };
+
+    // Callback : message lu (coches bleues)
+    SocketService.onMessageRead = (chatId, messageId) {
+      if (chatId == widget.chatId && mounted) {
+        // Met à jour les coches du message concerné
+        setState(() {
+          for (int i = 0; i < _messages.length; i++) {
+            if (_messages[i].id == messageId) {
+              _messages[i] = _messages[i].copyWith(isRead: true);
+            }
+          }
+        });
+      }
+    };
+  }
+
   void _startTypingAnimation() async {
     _typingDot1.repeat(reverse: true);
     await Future.delayed(const Duration(milliseconds: 150));
@@ -107,11 +170,23 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   void _stopTypingAnimation() {
     _typingDot1.stop();
-    _typingDot2.stop();
-    _typingDot3.stop();
     _typingDot1.reset();
+    _typingDot2.stop();
     _typingDot2.reset();
+    _typingDot3.stop();
     _typingDot3.reset();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -121,208 +196,206 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _typingDot1.dispose();
     _typingDot2.dispose();
     _typingDot3.dispose();
+    // Quitte la room Socket.io quand on ferme le chat
+    SocketService.leaveChat(widget.chatId);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-              child: Text(
-                widget.contactName.isNotEmpty
-                    ? widget.contactName[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.contactName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  _isContactTyping ? "en train d'écrire..." : "en ligne",
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: _isContactTyping
-                        ? AppColors.primary
-                        : AppColors.online,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.call, color: AppColors.textPrimary),
-            onPressed: () => _showComingSoon("Appel audio"),
-          ),
-          IconButton(
-            icon: const Icon(Icons.videocam, color: AppColors.textPrimary),
-            onPressed: () => _showComingSoon("Appel vidéo"),
-          ),
-        ],
-      ),
-
+      appBar: _buildAppBar(),
       body: Column(
         children: [
-          // ── Zone des messages ──────────────────────────────────
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              reverse: true,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: _messages.length + (_isContactTyping ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (_isContactTyping && index == 0) {
-                  return _buildTypingIndicator();
-                }
-                final messageIndex = _isContactTyping ? index - 1 : index;
-                final message = _messages[_messages.length - 1 - messageIndex];
-                return _buildAnimatedBubble(message, index);
-              },
-            ),
-          ),
-
-          // ── Zone de saisie ─────────────────────────────────────
+          Expanded(child: _buildMessageList()),
           _buildInputBar(),
         ],
       ),
     );
   }
 
-  // ── Bulle de message avec sentiment ──────────────────────────
+  // ── AppBar ────────────────────────────────────────────────────
 
-  Widget _buildAnimatedBubble(_MockMessage message, int index) {
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      titleSpacing: 0,
+      backgroundColor: AppColors.surface,
+      title: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+            child: Text(
+              widget.contactName.isNotEmpty
+                  ? widget.contactName[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.contactName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                _isContactTyping ? "en train d'écrire..." : "en ligne",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _isContactTyping
+                      ? AppColors.primary
+                      : AppColors.online,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.call, color: AppColors.textPrimary),
+          onPressed: () => _showComingSoon("Appel audio"),
+        ),
+        IconButton(
+          icon: const Icon(Icons.videocam, color: AppColors.textPrimary),
+          onPressed: () => _showComingSoon("Appel vidéo"),
+        ),
+      ],
+    );
+  }
+
+  // ── Liste des messages ────────────────────────────────────────
+
+  Widget _buildMessageList() {
+    return ListView.builder(
+      controller: _scrollController,
+      reverse: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: _messages.length + (_isContactTyping ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (_isContactTyping && index == 0) {
+          return _buildTypingIndicator();
+        }
+        final msgIndex = _isContactTyping ? index - 1 : index;
+        final message = _messages[_messages.length - 1 - msgIndex];
+        return _buildAnimatedBubble(message);
+      },
+    );
+  }
+
+  // ── Bulle animée ──────────────────────────────────────────────
+
+  Widget _buildAnimatedBubble(_ChatMessage message) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.scale(
-            scale: 0.8 + (0.2 * value),
-            alignment: message.isMe
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-            child: child,
-          ),
-        );
-      },
-      child: _buildMessageBubble(message),
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.scale(
+          scale: 0.8 + (0.2 * value),
+          alignment: message.isMe
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          child: child,
+        ),
+      ),
+      child: _buildBubble(message),
     );
   }
 
-  Widget _buildMessageBubble(_MockMessage message) {
+  Widget _buildBubble(_ChatMessage message) {
     final isMe = message.isMe;
-
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 3),
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: isMe ? AppColors.messageSent : AppColors.messageReceived,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(18),
-                topRight: const Radius.circular(18),
-                bottomLeft: isMe ? const Radius.circular(18) : Radius.zero,
-                bottomRight: isMe ? Radius.zero : const Radius.circular(18),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe ? AppColors.messageSent : AppColors.messageReceived,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: isMe ? const Radius.circular(18) : Radius.zero,
+            bottomRight: isMe ? Radius.zero : const Radius.circular(18),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            // Image
+            if (message.imagePath != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: kIsWeb
+                    ? const Icon(Icons.image, color: Colors.white, size: 80)
+                    : Image.file(
+                        File(message.imagePath!),
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: isMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                // Image si message image
-                if (message.imagePath != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: kIsWeb
-                        ? const Icon(Icons.image, color: Colors.white, size: 80)
-                        : Image.file(
-                            File(message.imagePath!),
-                            width: 200,
-                            height: 200,
-                            fit: BoxFit.cover,
-                          ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
+              const SizedBox(height: 4),
+            ],
 
-                // Texte du message
-                if (message.text.isNotEmpty)
-                  Text(
-                    message.text,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      height: 1.3,
-                    ),
-                  ),
-
-                const SizedBox(height: 3),
-
-                // Heure + coches + emoji sentiment
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Emoji de sentiment (livrable Ulrich)
-                    if (message.sentiment != null) ...[
-                      Text(
-                        SentimentService.getEmoji(message.sentiment!),
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      message.time,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 10,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 3),
-                      const Icon(
-                        Icons.done_all,
-                        size: 13,
-                        color: Colors.white60,
-                      ),
-                    ],
-                  ],
+            // Texte
+            if (message.text.isNotEmpty)
+              Text(
+                message.text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  height: 1.3,
                 ),
+              ),
+
+            const SizedBox(height: 3),
+
+            // Heure + coches + emoji sentiment (Ulrich)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (message.sentiment != null) ...[
+                  Text(
+                    SentimentService.getEmoji(message.sentiment!),
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  const SizedBox(width: 3),
+                ],
+                Text(
+                  message.time,
+                  style: const TextStyle(color: Colors.white60, fontSize: 10),
+                ),
+                if (isMe) ...[
+                  const SizedBox(width: 3),
+                  Icon(
+                    Icons.done_all,
+                    size: 13,
+                    // Coches bleues si lu, blanches sinon (Michaël)
+                    color: message.isRead
+                        ? Colors.lightBlueAccent
+                        : Colors.white60,
+                  ),
+                ],
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -407,6 +480,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: TextField(
               controller: _messageController,
               style: const TextStyle(color: AppColors.textPrimary),
+              onChanged: (text) {
+                // Notifie Socket.io que l'utilisateur est en train d'écrire
+                if (text.isNotEmpty) {
+                  SocketService.emitTyping(widget.chatId);
+                } else {
+                  SocketService.emitStopTyping(widget.chatId);
+                }
+              },
               decoration: InputDecoration(
                 hintText: "Message...",
                 hintStyle: const TextStyle(color: AppColors.textSecondary),
@@ -429,23 +510,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             icon: const Icon(Icons.attach_file, color: AppColors.textSecondary),
             onPressed: _showImageSourceDialog,
           ),
-
-          // Bouton envoi — affiche un loader pendant l'analyse de sentiment
+          // Bouton envoi — spinner pendant analyse sentiment
           GestureDetector(
-            onTap: _isAnalyzing ? null : _sendTextMessage,
+            onTap: _isAnalyzing ? null : _sendMessage,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                // Grisé pendant l'analyse, rouge sinon
                 color: _isAnalyzing
                     ? AppColors.textSecondary
                     : AppColors.primary,
                 shape: BoxShape.circle,
               ),
               child: _isAnalyzing
-                  // Spinner pendant l'analyse de sentiment
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(
@@ -462,29 +540,24 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ── Envoi avec analyse de sentiment ──────────────────────────
+  // ── Envoi de message ──────────────────────────────────────────
 
-  /// Envoie un message avec analyse de sentiment (livrable Ulrich).
-  ///
-  /// Flux :
-  ///   1. Récupère le texte saisi
-  ///   2. Analyse le sentiment (SentimentService) — local ou Vertex AI
-  ///   3. Envoie les métadonnées au pipeline Big Data (AnalyticsService)
-  ///   4. Affiche le message avec l'emoji de sentiment
-  Future<void> _sendTextMessage() async {
+  /// Envoie un message avec :
+  ///   1. Analyse de sentiment (Ulrich)
+  ///   2. Envoi via Socket.io si connecté (Michaël)
+  ///   3. Simulation si Socket.io non connecté (mode démo)
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    // Affiche le spinner pendant l'analyse
     setState(() => _isAnalyzing = true);
     _messageController.clear();
+    SocketService.emitStopTyping(widget.chatId);
 
-    // Étape 1 : Analyse de sentiment AVANT envoi
-    // (en clair, avant chiffrement E2EE)
+    // Étape 1 : Analyse de sentiment (Ulrich)
     final sentiment = await SentimentService.analyze(text);
 
-    // Étape 2 : Envoie les métadonnées au pipeline Big Data d'Ulrich
-    // (anonymisé — pas le contenu du message)
+    // Étape 2 : Pipeline Big Data (Ulrich)
     AnalyticsService.trackMessage(
       messageLength: text.length,
       sentiment: sentiment,
@@ -492,35 +565,51 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       timestamp: DateTime.now(),
     );
 
-    // Étape 3 : Ajoute le message à l'UI avec l'emoji de sentiment
+    final currentUserId = context.read<AuthCubit>().state.user?.id ?? 'me';
+
+    final newMessage = _ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: text,
+      isMe: true,
+      time: _currentTime(),
+      sentiment: sentiment,
+    );
+
     setState(() {
       _isAnalyzing = false;
-      _messages.add(
-        _MockMessage(
-          text: text,
-          isMe: true,
-          time: _currentTime(),
-          sentiment: sentiment, // Emoji affiché sur la bulle
-        ),
+      _messages.add(newMessage);
+    });
+
+    _scrollToBottom();
+
+    // Étape 3 : Envoi via Socket.io (Michaël) si connecté
+    if (SocketService.isConnected) {
+      // Socket connecté → envoi temps réel
+      SocketService.sendMessage(
+        // Crée un MessageModel minimal pour Socket.io
+        _buildSocketMessage(newMessage, currentUserId),
       );
-    });
-
-    // Scroll vers le bas
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-
-    // Simule la réponse du contact
-    _simulateTyping();
+    } else {
+      // Socket non connecté → simulation démo
+      _simulateReply();
+    }
   }
 
-  void _simulateTyping() async {
+  /// Crée un MessageModel pour Socket.io à partir d'un _ChatMessage.
+  dynamic _buildSocketMessage(_ChatMessage msg, String senderId) {
+    // Import inline pour éviter la dépendance circulaire
+    return {
+      'id': msg.id,
+      'chat_id': widget.chatId,
+      'sender_id': senderId,
+      'content': msg.text,
+      'type': 'text',
+      'created_at': DateTime.now().toIso8601String(),
+    };
+  }
+
+  /// Simule une réponse du contact (mode démo sans Socket.io).
+  void _simulateReply() async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
 
@@ -531,15 +620,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (!mounted) return;
 
     _stopTypingAnimation();
-
-    // Analyse le sentiment de la réponse simulée aussi
     const replyText = "Super message ! 👍";
     final replySentiment = await SentimentService.analyze(replyText);
 
     setState(() {
       _isContactTyping = false;
       _messages.add(
-        _MockMessage(
+        _ChatMessage(
           text: replyText,
           isMe: false,
           time: _currentTime(),
@@ -608,33 +695,32 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? pickedFile = await _imagePicker.pickImage(
+      final XFile? file = await _imagePicker.pickImage(
         source: source,
         imageQuality: 70,
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (pickedFile == null) return;
+      if (file == null) return;
       setState(() {
         _messages.add(
-          _MockMessage(
+          _ChatMessage(
             text: '',
             isMe: true,
             time: _currentTime(),
-            imagePath: pickedFile.path,
+            imagePath: file.path,
             sentiment: SentimentScore.neutral,
           ),
         );
       });
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Erreur : $e"),
             backgroundColor: AppColors.error,
           ),
         );
-      }
     }
   }
 
@@ -643,26 +729,45 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     return '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
   }
 
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("$feature — bientôt disponible")));
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
+
+  void _showComingSoon(String f) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text("$f — bientôt disponible")));
 }
 
-// ── Modèle de message mocké avec sentiment ────────────────────
-class _MockMessage {
+// ── Modèle de message ─────────────────────────────────────────
+
+class _ChatMessage {
+  final String id;
   final String text;
   final bool isMe;
   final String time;
   final String? imagePath;
-  final SentimentScore? sentiment; // Score de sentiment (Ulrich)
+  final SentimentScore? sentiment; // Ulrich
+  final bool isRead; // Michaël (coches bleues)
 
-  _MockMessage({
+  _ChatMessage({
+    String? id,
     required this.text,
     required this.isMe,
     required this.time,
     this.imagePath,
     this.sentiment,
-  });
+    this.isRead = false,
+  }) : id = id ?? DateTime.now().millisecondsSinceEpoch.toString();
+
+  _ChatMessage copyWith({bool? isRead}) {
+    return _ChatMessage(
+      id: id,
+      text: text,
+      isMe: isMe,
+      time: time,
+      imagePath: imagePath,
+      sentiment: sentiment,
+      isRead: isRead ?? this.isRead,
+    );
+  }
 }

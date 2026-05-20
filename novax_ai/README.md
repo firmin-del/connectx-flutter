@@ -1,19 +1,17 @@
-# 🤖 NovaX AI — Livrable Big Data & IA
+🤖 NovaX AI — Livrable Big Data & IA
 > HANKPE Ulrich — Filière Big Data & IA  
 > Projet NovaX — Méthode Forge-IMeN — Mai 2026
 
----
+Rôle dans le projet
 
-## Rôle dans le projet
+Ulrich est responsable de la couche Intelligence Artificielle de NovaX :
+- Analyse de sentiment des messages via Vertex AI (Google Cloud)
+- Pipeline Big Data → Google Sheets
+- Dashboard décisionnel Google Looker Studio
 
-Ulrich est responsable de la couche **Intelligence Artificielle** de NovaX :
-- Analyse de sentiment des messages via **Vertex AI** (Google Cloud)
-- Pipeline Big Data → **Google Sheets**
-- Dashboard décisionnel **Google Looker Studio**
 
----
 
-## Structure de ce dossier
+Structure de ce dossier
 
 ```
 novax_ai/
@@ -30,7 +28,7 @@ novax_ai/
 
 ---
 
-## Compte de test
+Compte de test
 
 ```
 Projet Google Cloud : novax-ai-project (à créer)
@@ -40,7 +38,7 @@ Service             : Natural Language API / Vertex AI
 
 ---
 
-## Ce que Firmin (Dev Mobile) attend d'Ulrich
+Ce que Firmin (Dev Mobile) attend d'Ulrich
 
 ```dart
 // Dans app_constants.dart — à remplir par Ulrich :
@@ -51,4 +49,4 @@ static const String googleSheetsUrl = "https://sheets.googleapis.com/...";
 
 ---
 
-*HANKPE Ulrich — Big Data & IA — Projet NovaX — Mai 2026*
+HANKPE Ulrich — Big Data & IA — Projet NovaX — Mai 2026

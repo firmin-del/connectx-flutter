@@ -1,0 +1,31 @@
+{
+  "_comment": "Configuration Socket.io — À remplir par MIWANOU Michaël",
+
+  "port": 3000,
+
+  "jwt_secret": "MEME_SECRET_QUE_LARAVEL_APP_KEY",
+
+  "cors_origins": [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "http://192.168.*.*:*"
+  ],
+
+  "events": {
+    "client_to_server": [
+      "join_chat",
+      "send_message",
+      "typing",
+      "stop_typing",
+      "message_read"
+    ],
+    "server_to_client": [
+      "new_message",
+      "user_online",
+      "user_offline",
+      "typing",
+      "stop_typing",
+      "message_read"
+    ]
+  }
+}
