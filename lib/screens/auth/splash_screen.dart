@@ -89,11 +89,19 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo de l'application
-              Icon(
-                Icons.chat_bubble_rounded,
-                size: 100,
-                color: Theme.of(context).colorScheme.primary,
+              // Logo de l'application — cercle rouge avec icône play/chat
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded, // Icône [>] du design Kamélia
+                  color: Colors.white,
+                  size: 50,
+                ),
               ),
               const SizedBox(height: 24),
 

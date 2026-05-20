@@ -175,6 +175,7 @@ class MainApp extends StatelessWidget {
               debugShowCheckedModeBanner: false,
 
               // Thèmes définis dans app_theme.dart
+              // Dark mode par défaut selon le design de Kamélia
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: themeMode, // Contrôlé par ThemeCubit

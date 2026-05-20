@@ -39,16 +39,24 @@ class ProfileScreen extends StatelessWidget {
             alignment: Alignment.center,
             child: Column(
               children: [
-                // Avatar circulaire
+                // Avatar circulaire avec initiales (design Kamélia : "FS")
                 CircleAvatar(
                   radius: 50,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.2),
-                  child: Icon(
-                    Icons.person,
-                    size: 60,
-                    color: Theme.of(context).colorScheme.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    // Affiche les initiales du nom (ex: "FS" pour Firmin SAMBIENI)
+                    user != null && user.name.isNotEmpty
+                        ? user.name
+                              .split(' ')
+                              .take(2)
+                              .map((e) => e[0].toUpperCase())
+                              .join()
+                        : '?',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -76,10 +76,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 60),
 
                   // ── Logo ──────────────────────────────────────────
-                  Icon(
-                    Icons.chat_bubble_rounded,
-                    size: 90,
-                    color: Theme.of(context).colorScheme.primary,
+                  // Cercle rouge avec icône [>] — design Kamélia
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 44,
+                    ),
                   ),
                   const SizedBox(height: 24),
 

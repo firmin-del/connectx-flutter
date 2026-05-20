@@ -13,9 +13,10 @@
 //   - contactName : nom du contact affiché dans l'AppBar
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Package pour caméra/galerie
-import 'dart:io'; // Pour afficher les images locales (File)
-import 'package:flutter/foundation.dart' show kIsWeb; // Détection web
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../theme/app_colors.dart'; // Couleurs de Kamélia
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -147,9 +148,9 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isMe
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey[700],
+          // Bulle envoyée : rouge Primary de Kamélia (#B4223F)
+          // Bulle reçue  : gris foncé de Kamélia (#2A2A2A)
+          color: isMe ? AppColors.messageSent : AppColors.messageReceived,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),

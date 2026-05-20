@@ -16,8 +16,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String _themeKey = 'is_dark_mode';
 
 class ThemeCubit extends Cubit<ThemeMode> {
-  /// État initial : ThemeMode.system (suit le thème du téléphone)
-  ThemeCubit() : super(ThemeMode.system) {
+  /// État initial : ThemeMode.dark (design Kamélia = dark mode prioritaire)
+  ThemeCubit() : super(ThemeMode.dark) {
     // Charge le thème sauvegardé dès l'instanciation
     _loadSavedTheme();
   }
