@@ -41,7 +41,14 @@ class AppConstants {
     seconds: 30,
   ); // Timeout des requêtes API
 
-  // ── Messages d'erreur par défaut ───────────────────────────────
+  // ── Analyse de sentiment (Ulrich — Big Data & IA) ─────────────
+  // Endpoint Vertex AI — à remplir quand Ulrich livre sa clé
+  // Format attendu : POST { "text": "..." } → { "score": "positive|neutral|negative" }
+  static const String vertexAiUrl = ""; // URL Vertex AI d'Ulrich
+  static const String vertexAiKey = ""; // Clé API Google Cloud d'Ulrich
+
+  // Pipeline Big Data → Google Sheets (Ulrich)
+  static const String googleSheetsUrl = ""; // URL Google Sheets API d'Ulrich
   static const String defaultErrorMessage =
       "Une erreur est survenue. Veuillez réessayer.";
   static const String networkErrorMessage =

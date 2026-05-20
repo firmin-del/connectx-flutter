@@ -1,0 +1,18 @@
+{
+  "_comment": "Configuration Vertex AI — À remplir par HANKPE Ulrich",
+  "_instructions": "Remplacer les valeurs vides par les vraies valeurs Google Cloud",
+
+  "project_id": "",
+  "location": "europe-west1",
+  "api_key": "",
+
+  "sentiment_endpoint": "https://language.googleapis.com/v1/documents:analyzeSentiment",
+
+  "google_sheets_id": "",
+  "google_sheets_range": "NovaX_Analytics!A:F",
+
+  "score_thresholds": {
+    "positive": 0.25,
+    "negative": -0.25
+  }
+}

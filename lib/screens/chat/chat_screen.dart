@@ -1,18 +1,23 @@
 // chat_screen.dart
 // Écran de conversation — design Kamélia v1.0
 //
+// Intégration Ulrich (Big Data & IA) :
+//   - Analyse de sentiment avant envoi (SentimentService)
+//   - Emoji de sentiment affiché sur les bulles (😊 😐 😠)
+//   - Pipeline Big Data (AnalyticsService.trackMessage)
+//
 // Polissage UI :
 //   - Animation d'apparition des bulles (scale + fade, 250ms easeOut)
-//   - Indicateur "en train d'écrire" (3 points animés comme Kamélia)
-//   - Bouton envoi animé (scale au tap)
-//   - Scroll automatique vers le bas à chaque nouveau message
-//   - Barre de saisie avec fond surface Kamélia
+//   - Indicateur "en train d'écrire" (3 points animés)
+//   - Scroll automatique vers le bas
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../theme/app_colors.dart';
+import '../../services/sentiment_service.dart'; // IA Ulrich
+import '../../services/analytics_service.dart'; // Big Data Ulrich
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -31,28 +36,44 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
-
-  // ScrollController pour auto-scroll vers le bas
   final ScrollController _scrollController = ScrollController();
 
-  // Contrôleur pour l'animation des 3 points "en train d'écrire"
+  // Contrôleurs pour l'indicateur "en train d'écrire"
   late AnimationController _typingDot1;
   late AnimationController _typingDot2;
   late AnimationController _typingDot3;
 
-  // Simule l'indicateur "en train d'écrire" (sera branché sur Socket.io)
   bool _isContactTyping = false;
 
-  // Messages de démonstration
+  // true = analyse de sentiment en cours (affiche un loader sur le bouton envoi)
+  bool _isAnalyzing = false;
+
+  // Messages de démonstration avec sentiment
   final List<_MockMessage> _messages = [
-    _MockMessage(text: "Salut ! Comment ça va ?", isMe: false, time: "14:30"),
-    _MockMessage(text: "Très bien merci, et toi ?", isMe: true, time: "14:31"),
+    _MockMessage(
+      text: "Salut ! Comment ça va ?",
+      isMe: false,
+      time: "14:30",
+      sentiment: SentimentScore.positive,
+    ),
+    _MockMessage(
+      text: "Très bien merci, et toi ?",
+      isMe: true,
+      time: "14:31",
+      sentiment: SentimentScore.positive,
+    ),
     _MockMessage(
       text: "Super ! Tu as vu le projet NovaX ?",
       isMe: false,
       time: "14:32",
+      sentiment: SentimentScore.positive,
     ),
-    _MockMessage(text: "Oui, on avance bien 🚀", isMe: true, time: "14:33"),
+    _MockMessage(
+      text: "Oui, on avance bien 🚀",
+      isMe: true,
+      time: "14:33",
+      sentiment: SentimentScore.positive,
+    ),
   ];
 
   @override
@@ -62,7 +83,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _setupTypingAnimation() {
-    // 3 points animés — cycle de 600ms chacun, décalés de 150ms
     _typingDot1 = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -77,7 +97,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Démarre l'animation des 3 points "en train d'écrire".
   void _startTypingAnimation() async {
     _typingDot1.repeat(reverse: true);
     await Future.delayed(const Duration(milliseconds: 150));
@@ -86,7 +105,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (mounted) _typingDot3.repeat(reverse: true);
   }
 
-  /// Arrête l'animation des 3 points.
   void _stopTypingAnimation() {
     _typingDot1.stop();
     _typingDot2.stop();
@@ -109,12 +127,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ── AppBar ─────────────────────────────────────────────────
       appBar: AppBar(
         titleSpacing: 0,
         title: Row(
           children: [
-            // Avatar avec initiale
             CircleAvatar(
               radius: 18,
               backgroundColor: AppColors.primary.withValues(alpha: 0.2),
@@ -140,7 +156,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                // Statut : "en train d'écrire" ou "en ligne"
                 Text(
                   _isContactTyping ? "en train d'écrire..." : "en ligne",
                   style: TextStyle(
@@ -174,16 +189,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               controller: _scrollController,
               reverse: true,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              // +1 pour l'indicateur "en train d'écrire" si actif
               itemCount: _messages.length + (_isContactTyping ? 1 : 0),
               itemBuilder: (context, index) {
-                // L'indicateur "en train d'écrire" est affiché en premier (index 0)
-                // car la liste est inversée (reverse: true)
                 if (_isContactTyping && index == 0) {
                   return _buildTypingIndicator();
                 }
-
-                // Décale l'index si l'indicateur est affiché
                 final messageIndex = _isContactTyping ? index - 1 : index;
                 final message = _messages[_messages.length - 1 - messageIndex];
                 return _buildAnimatedBubble(message, index);
@@ -198,13 +208,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ── Bulle de message avec animation ──────────────────────────
+  // ── Bulle de message avec sentiment ──────────────────────────
 
-  /// Construit une bulle de message avec animation d'apparition.
-  /// Animation : scale 0.8 → 1.0 + fade-in en 250ms (easeOut)
   Widget _buildAnimatedBubble(_MockMessage message, int index) {
     return TweenAnimationBuilder<double>(
-      // Chaque bulle a sa propre animation déclenchée à la construction
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
@@ -212,7 +219,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         return Opacity(
           opacity: value,
           child: Transform.scale(
-            scale: 0.8 + (0.2 * value), // Scale de 0.8 → 1.0
+            scale: 0.8 + (0.2 * value),
             alignment: message.isMe
                 ? Alignment.centerRight
                 : Alignment.centerLeft,
@@ -224,84 +231,104 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Construit la bulle de message (contenu).
   Widget _buildMessageBubble(_MockMessage message) {
     final isMe = message.isMe;
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isMe ? AppColors.messageSent : AppColors.messageReceived,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(18),
-            topRight: const Radius.circular(18),
-            bottomLeft: isMe ? const Radius.circular(18) : Radius.zero,
-            bottomRight: isMe ? Radius.zero : const Radius.circular(18),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: isMe
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            // Image si message image
-            if (message.imagePath != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: kIsWeb
-                    ? const Icon(Icons.image, color: Colors.white, size: 80)
-                    : Image.file(
-                        File(message.imagePath!),
-                        width: 200,
-                        height: 200,
-                        fit: BoxFit.cover,
-                      ),
+      child: Column(
+        crossAxisAlignment: isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isMe ? AppColors.messageSent : AppColors.messageReceived,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
+                bottomLeft: isMe ? const Radius.circular(18) : Radius.zero,
+                bottomRight: isMe ? Radius.zero : const Radius.circular(18),
               ),
-              const SizedBox(height: 4),
-            ],
-
-            // Texte du message
-            if (message.text.isNotEmpty)
-              Text(
-                message.text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  height: 1.3,
-                ),
-              ),
-
-            const SizedBox(height: 3),
-
-            // Heure + coches de statut
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            ),
+            child: Column(
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
-                Text(
-                  message.time,
-                  style: const TextStyle(color: Colors.white60, fontSize: 10),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 3),
-                  const Icon(Icons.done_all, size: 13, color: Colors.white60),
+                // Image si message image
+                if (message.imagePath != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: kIsWeb
+                        ? const Icon(Icons.image, color: Colors.white, size: 80)
+                        : Image.file(
+                            File(message.imagePath!),
+                            width: 200,
+                            height: 200,
+                            fit: BoxFit.cover,
+                          ),
+                  ),
+                  const SizedBox(height: 4),
                 ],
+
+                // Texte du message
+                if (message.text.isNotEmpty)
+                  Text(
+                    message.text,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      height: 1.3,
+                    ),
+                  ),
+
+                const SizedBox(height: 3),
+
+                // Heure + coches + emoji sentiment
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Emoji de sentiment (livrable Ulrich)
+                    if (message.sentiment != null) ...[
+                      Text(
+                        SentimentService.getEmoji(message.sentiment!),
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      message.time,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 10,
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 3),
+                      const Icon(
+                        Icons.done_all,
+                        size: 13,
+                        color: Colors.white60,
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   // ── Indicateur "en train d'écrire" ───────────────────────────
 
-  /// Construit l'indicateur 3 points animés (design Kamélia).
   Widget _buildTypingIndicator() {
     return Align(
       alignment: Alignment.centerLeft,
@@ -330,7 +357,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Construit un point animé pour l'indicateur de frappe.
   Widget _buildTypingDot(AnimationController controller) {
     return AnimatedBuilder(
       animation: controller,
@@ -343,7 +369,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           child: Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.textSecondary,
               shape: BoxShape.circle,
             ),
@@ -370,7 +396,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          // Bouton emoji
           IconButton(
             icon: const Icon(
               Icons.emoji_emotions_outlined,
@@ -378,8 +403,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             onPressed: () {},
           ),
-
-          // Champ de saisie
           Expanded(
             child: TextField(
               controller: _messageController,
@@ -402,25 +425,35 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               textCapitalization: TextCapitalization.sentences,
             ),
           ),
-
-          // Bouton pièce jointe
           IconButton(
             icon: const Icon(Icons.attach_file, color: AppColors.textSecondary),
             onPressed: _showImageSourceDialog,
           ),
 
-          // Bouton envoi avec animation scale au tap
+          // Bouton envoi — affiche un loader pendant l'analyse de sentiment
           GestureDetector(
-            onTap: _sendTextMessage,
+            onTap: _isAnalyzing ? null : _sendTextMessage,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
+              decoration: BoxDecoration(
+                // Grisé pendant l'analyse, rouge sinon
+                color: _isAnalyzing
+                    ? AppColors.textSecondary
+                    : AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send, color: Colors.white, size: 20),
+              child: _isAnalyzing
+                  // Spinner pendant l'analyse de sentiment
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send, color: Colors.white, size: 20),
             ),
           ),
           const SizedBox(width: 4),
@@ -429,19 +462,50 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ── Actions ───────────────────────────────────────────────────
+  // ── Envoi avec analyse de sentiment ──────────────────────────
 
-  void _sendTextMessage() {
+  /// Envoie un message avec analyse de sentiment (livrable Ulrich).
+  ///
+  /// Flux :
+  ///   1. Récupère le texte saisi
+  ///   2. Analyse le sentiment (SentimentService) — local ou Vertex AI
+  ///   3. Envoie les métadonnées au pipeline Big Data (AnalyticsService)
+  ///   4. Affiche le message avec l'emoji de sentiment
+  Future<void> _sendTextMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add(_MockMessage(text: text, isMe: true, time: _currentTime()));
-    });
-
+    // Affiche le spinner pendant l'analyse
+    setState(() => _isAnalyzing = true);
     _messageController.clear();
 
-    // Scroll vers le bas après envoi
+    // Étape 1 : Analyse de sentiment AVANT envoi
+    // (en clair, avant chiffrement E2EE)
+    final sentiment = await SentimentService.analyze(text);
+
+    // Étape 2 : Envoie les métadonnées au pipeline Big Data d'Ulrich
+    // (anonymisé — pas le contenu du message)
+    AnalyticsService.trackMessage(
+      messageLength: text.length,
+      sentiment: sentiment,
+      chatId: widget.chatId,
+      timestamp: DateTime.now(),
+    );
+
+    // Étape 3 : Ajoute le message à l'UI avec l'emoji de sentiment
+    setState(() {
+      _isAnalyzing = false;
+      _messages.add(
+        _MockMessage(
+          text: text,
+          isMe: true,
+          time: _currentTime(),
+          sentiment: sentiment, // Emoji affiché sur la bulle
+        ),
+      );
+    });
+
+    // Scroll vers le bas
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -452,12 +516,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     });
 
-    // Simule l'indicateur "en train d'écrire" du contact (démo)
+    // Simule la réponse du contact
     _simulateTyping();
   }
 
-  /// Simule l'indicateur "en train d'écrire" pour la démo.
-  /// Sera remplacé par les événements Socket.io de Michaël.
   void _simulateTyping() async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
@@ -469,14 +531,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (!mounted) return;
 
     _stopTypingAnimation();
+
+    // Analyse le sentiment de la réponse simulée aussi
+    const replyText = "Super message ! 👍";
+    final replySentiment = await SentimentService.analyze(replyText);
+
     setState(() {
       _isContactTyping = false;
-      // Ajoute une réponse simulée
       _messages.add(
         _MockMessage(
-          text: "Super message ! 👍",
+          text: replyText,
           isMe: false,
           time: _currentTime(),
+          sentiment: replySentiment,
         ),
       );
     });
@@ -513,10 +580,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   "Prendre une photo",
                   style: TextStyle(color: AppColors.textPrimary),
                 ),
-                subtitle: const Text(
-                  "Utiliser la caméra",
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera);
@@ -530,10 +593,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 title: const Text(
                   "Choisir depuis la galerie",
                   style: TextStyle(color: AppColors.textPrimary),
-                ),
-                subtitle: const Text(
-                  "Sélectionner une photo existante",
-                  style: TextStyle(color: AppColors.textSecondary),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -556,7 +615,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         maxHeight: 1024,
       );
       if (pickedFile == null) return;
-
       setState(() {
         _messages.add(
           _MockMessage(
@@ -564,6 +622,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             isMe: true,
             time: _currentTime(),
             imagePath: pickedFile.path,
+            sentiment: SentimentScore.neutral,
           ),
         );
       });
@@ -591,17 +650,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 }
 
-// ── Modèle de message mocké ───────────────────────────────────
+// ── Modèle de message mocké avec sentiment ────────────────────
 class _MockMessage {
   final String text;
   final bool isMe;
   final String time;
   final String? imagePath;
+  final SentimentScore? sentiment; // Score de sentiment (Ulrich)
 
   _MockMessage({
     required this.text,
     required this.isMe,
     required this.time,
     this.imagePath,
+    this.sentiment,
   });
 }
