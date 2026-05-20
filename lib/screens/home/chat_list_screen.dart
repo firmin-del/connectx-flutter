@@ -152,112 +152,125 @@ class _ChatListScreenState extends State<ChatListScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: state.chats.length,
-                  // Séparateur fin entre chaque item
-                  separatorBuilder: (_, __) => const Divider(
-                    height: 1,
-                    indent: 72, // Aligne avec le texte (après l'avatar)
-                  ),
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, indent: 72),
                   itemBuilder: (context, index) {
                     final chat = state.chats[index];
-
-                    // Nom à afficher (nom du groupe ou nom du contact)
                     final displayName = chat.participants.isNotEmpty
                         ? chat.getDisplayName(currentUserId)
                         : 'Contact ${index + 1}';
 
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-
-                      // ── Avatar ─────────────────────────────────
-                      leading: CircleAvatar(
-                        radius: 26,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.15),
-                        child: Text(
-                          // Initiale du nom
-                          displayName.isNotEmpty
-                              ? displayName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
+                    // Animation slide-in décalée pour chaque item
+                    // Chaque item apparaît avec un délai de 50ms * index
+                    return TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: Duration(milliseconds: 300 + (index * 50)),
+                      curve: Curves.easeOut,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            // Slide depuis la droite
+                            offset: Offset(30 * (1 - value), 0),
+                            child: child,
                           ),
-                        ),
-                      ),
-
-                      // ── Nom du contact ─────────────────────────
-                      title: Text(
-                        displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      // ── Aperçu du dernier message ──────────────
-                      subtitle: Text(
-                        chat.lastMessagePreview,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-
-                      // ── Heure + Badge non-lu ───────────────────
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Heure du dernier message
-                          Text(
-                            _formatTime(chat.lastActivity),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: chat.unreadCount > 0
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          // Badge messages non lus
-                          if (chat.unreadCount > 0)
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 20,
-                                minHeight: 20,
-                              ),
-                              child: Text(
-                                chat.unreadCount > 99
-                                    ? '99+'
-                                    : '${chat.unreadCount}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      // ── Navigation vers le chat ────────────────
-                      onTap: () {
-                        // Remet à zéro le badge non-lu
-                        context.read<ChatCubit>().markChatAsRead(chat.id);
-                        // Navigue vers l'écran de chat avec le nom du contact
-                        context.go(
-                          '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}',
                         );
                       },
-                    );
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+
+                        // ── Avatar ─────────────────────────────────
+                        leading: CircleAvatar(
+                          radius: 26,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.15),
+                          child: Text(
+                            // Initiale du nom
+                            displayName.isNotEmpty
+                                ? displayName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+
+                        // ── Nom du contact ─────────────────────────
+                        title: Text(
+                          displayName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        // ── Aperçu du dernier message ──────────────
+                        subtitle: Text(
+                          chat.lastMessagePreview,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+
+                        // ── Heure + Badge non-lu ───────────────────
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Heure du dernier message
+                            Text(
+                              _formatTime(chat.lastActivity),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: chat.unreadCount > 0
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            // Badge messages non lus
+                            if (chat.unreadCount > 0)
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 20,
+                                  minHeight: 20,
+                                ),
+                                child: Text(
+                                  chat.unreadCount > 99
+                                      ? '99+'
+                                      : '${chat.unreadCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        // ── Navigation vers le chat ────────────────
+                        onTap: () {
+                          context.read<ChatCubit>().markChatAsRead(chat.id);
+                          context.go(
+                            '/chat/${chat.id}?name=${Uri.encodeComponent(displayName)}',
+                          );
+                        },
+                      ),
+                    ); // Ferme TweenAnimationBuilder
                   },
                 ),
               ),
