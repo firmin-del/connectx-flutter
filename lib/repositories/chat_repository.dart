@@ -63,6 +63,33 @@ class ChatRepository {
     return messages;
   }
 
+  // ── Envoi de message via API ──────────────────────────────────
+
+  /// Sauvegarde le message dans la base Laravel en plus de Socket.io.
+  Future<void> sendMessageToApi({
+    required String chatId,
+    required String content,
+    String type = 'text',
+    String? receiverId,
+  }) async {
+    try {
+      await ChatService.sendMessage(
+        chatId: chatId,
+        content: content,
+        type: type,
+        receiverId: receiverId,
+      );
+    } catch (_) {
+      // Non bloquant — Socket.io a déjà envoyé le message
+    }
+  }
+
+  // ── Marquer comme lus ─────────────────────────────────────────
+
+  Future<void> markAsRead(String chatId) async {
+    await ChatService.markAsRead(chatId);
+  }
+
   // ── Création de conversation ──────────────────────────────────
 
   /// Crée une nouvelle conversation et retourne le ChatModel créé.

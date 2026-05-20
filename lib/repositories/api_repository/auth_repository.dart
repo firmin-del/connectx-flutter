@@ -53,6 +53,25 @@ class AuthRepository {
     await AuthService.logout();
   }
 
+  // ── Profil ────────────────────────────────────────────────────
+
+  Future<UserModel> getMe() async {
+    final data = await AuthService.getMe();
+    return UserModel.fromJson(data);
+  }
+
+  Future<UserModel> updateProfile({String? name, String? phoneNumber}) async {
+    final data = await AuthService.updateProfile(
+      name: name,
+      phoneNumber: phoneNumber,
+    );
+    return UserModel.fromJson(data);
+  }
+
+  Future<void> deleteAccount() async {
+    await AuthService.deleteAccount();
+  }
+
   // ── Vérification de session ───────────────────────────────────
 
   /// Vérifie si l'utilisateur est déjà connecté (token valide en local).

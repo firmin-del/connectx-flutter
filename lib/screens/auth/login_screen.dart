@@ -13,6 +13,8 @@ import 'package:go_router/go_router.dart';
 import '../../cubits/login/login_cubit.dart';
 import '../../cubits/login/login_state.dart';
 import '../../constants/app_constants.dart';
+import '../../cubits/login/auth_cubit.dart';
+import '../../models/user_model.dart';
 import '../../theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -70,6 +72,14 @@ class _LoginScreenState extends State<LoginScreen>
     return BlocListener<LoginCubit, LoginState>(
       listener: (context, state) {
         if (state.loginStatus == LoginStatus.loaded) {
+          // Notifie AuthCubit avec le vrai profil utilisateur
+          context.read<AuthCubit>().setAuthenticated(
+            UserModel(
+              id: state.userId,
+              name: state.userName,
+              email: _emailController.text.trim(),
+            ),
+          );
           context.go('/home');
         } else if (state.loginStatus == LoginStatus.error) {
           // Déclenche l'animation shake sur erreur

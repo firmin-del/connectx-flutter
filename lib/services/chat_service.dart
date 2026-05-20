@@ -104,7 +104,48 @@ class ChatService {
     }
   }
 
-  // ── Gestion des erreurs ───────────────────────────────────────
+  // ── Envoi de message via API ──────────────────────────────────
+
+  /// Sauvegarde un message envoyé via l'API Laravel.
+  /// Appelé en parallèle de l'envoi Socket.io.
+  static Future<Map<String, dynamic>> sendMessage({
+    required String chatId,
+    required String content,
+    String type = 'text',
+    String? receiverId,
+    String? mediaUrl,
+  }) async {
+    try {
+      final response = await _api.post(
+        '/chats/$chatId/messages',
+        data: {
+          'content': content,
+          'type': type,
+          if (receiverId != null) 'receiver_id': receiverId,
+          if (mediaUrl != null) 'media_url': mediaUrl,
+        },
+      );
+      if (response.statusCode == 201) {
+        return response.data['message'] as Map<String, dynamic>;
+      }
+      throw Exception(
+        response.data['message'] ?? AppConstants.defaultErrorMessage,
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleError(e));
+    }
+  }
+
+  // ── Marquer comme lus ─────────────────────────────────────────
+
+  /// Marque tous les messages d'un chat comme lus.
+  static Future<void> markAsRead(String chatId) async {
+    try {
+      await _api.put('/chats/$chatId/messages/read');
+    } catch (_) {
+      // Silencieux — non bloquant
+    }
+  }
 
   static String _handleError(DioException e) {
     switch (e.type) {

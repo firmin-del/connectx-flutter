@@ -106,7 +106,64 @@ class AuthService {
     }
   }
 
-  // ── Vérification de session ───────────────────────────────────
+  // ── Récupération du profil ────────────────────────────────────
+
+  /// Récupère le profil complet de l'utilisateur connecté depuis l'API.
+  /// Appelé après login pour avoir le vrai nom/email.
+  static Future<Map<String, dynamic>> getMe() async {
+    try {
+      final response = await _api.get('/me');
+      if (response.statusCode == 200) {
+        return response.data['user'] as Map<String, dynamic>;
+      }
+      throw Exception(AppConstants.defaultErrorMessage);
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    }
+  }
+
+  // ── Mise à jour du profil ─────────────────────────────────────
+
+  /// Met à jour le nom et/ou le numéro de téléphone de l'utilisateur.
+  static Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? phoneNumber,
+  }) async {
+    try {
+      final response = await _api.put(
+        '/me',
+        data: {
+          if (name != null) 'name': name,
+          if (phoneNumber != null) 'phone_number': phoneNumber,
+        },
+      );
+      if (response.statusCode == 200) {
+        final user = response.data['user'] as Map<String, dynamic>;
+        // Met à jour le nom en local
+        final prefs = await SharedPreferences.getInstance();
+        if (name != null) await prefs.setString(AppConstants.userNameKey, name);
+        return user;
+      }
+      throw Exception(
+        response.data['message'] ?? AppConstants.defaultErrorMessage,
+      );
+    } on DioException catch (e) {
+      throw Exception(_handleDioError(e));
+    }
+  }
+
+  // ── Suppression du compte ─────────────────────────────────────
+
+  /// Supprime définitivement le compte de l'utilisateur.
+  static Future<void> deleteAccount() async {
+    try {
+      await _api.delete('/me');
+    } catch (_) {
+      // Même si le serveur échoue, on nettoie localement
+    } finally {
+      await _clearLocalData();
+    }
+  }
 
   /// Vérifie si un token valide existe localement.
   /// Utilisé au démarrage (SplashScreen) pour savoir si l'utilisateur

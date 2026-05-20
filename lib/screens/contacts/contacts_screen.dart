@@ -1,19 +1,13 @@
 // contacts_screen.dart
-// Écran de sélection de contacts pour démarrer une nouvelle conversation.
-//
-// Accessible depuis le bouton "+" de ChatListScreen.
-// Affiche les contacts qui ont un compte NovaX.
-//
-// Fonctionnalités :
-//   - Demande la permission d'accès aux contacts
-//   - Affiche la liste des contacts NovaX
-//   - Indicateur de statut en ligne (point vert)
-//   - Tap sur un contact → crée/ouvre la conversation
+// Sélection d'un contact → crée la conversation via l'API puis navigue.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/contact_model.dart';
 import '../../services/contact_service.dart';
+import '../../repositories/chat_repository.dart';
+import '../../theme/app_colors.dart';
 
 class ContactsScreen extends StatefulWidget {
   const ContactsScreen({super.key});
@@ -23,75 +17,134 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
-  // Liste des contacts chargés
   List<ContactModel> _contacts = [];
-
-  // État de chargement
+  List<ContactModel> _filtered = [];
   bool _isLoading = true;
-
-  // Message d'erreur si permission refusée
+  bool _isCreatingChat = false;
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // Charge les contacts au démarrage
     _loadContacts();
+    _searchController.addListener(_onSearch);
   }
 
-  /// Demande la permission puis charge les contacts NovaX.
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearch() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filtered = query.isEmpty
+          ? _contacts
+          : _contacts
+                .where((c) => c.name.toLowerCase().contains(query))
+                .toList();
+    });
+  }
+
   Future<void> _loadContacts() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    // Demande la permission d'accès aux contacts
     final hasPermission = await ContactService.requestContactsPermission();
-
     if (!hasPermission) {
-      // Permission refusée → affiche un message explicatif
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            "Permission d'accès aux contacts refusée.\n"
-            "Activez-la dans les paramètres pour voir vos contacts NovaX.";
+        _errorMessage = "Permission refusée.\nActivez-la dans les paramètres.";
       });
       return;
     }
 
-    // Charge les contacts depuis l'API (ou les mockés si API indisponible)
     final contacts = await ContactService.getNovaXContacts();
-
     if (mounted) {
       setState(() {
         _contacts = contacts;
+        _filtered = contacts;
         _isLoading = false;
       });
+    }
+  }
+
+  /// Crée ou récupère la conversation avec ce contact via l'API,
+  /// puis navigue vers l'écran de chat.
+  Future<void> _openChat(ContactModel contact) async {
+    setState(() => _isCreatingChat = true);
+
+    try {
+      final chatRepository = context.read<ChatRepository>();
+
+      // Crée la conversation via POST /api/chats
+      // Si elle existe déjà, Laravel retourne la conversation existante
+      final chat = await chatRepository.createChat(
+        participantIds: [contact.id],
+      );
+
+      if (mounted) {
+        setState(() => _isCreatingChat = false);
+        // Navigue vers le chat avec le vrai ID de conversation
+        context.go(
+          '/chat/${chat.id}?name=${Uri.encodeComponent(contact.name)}',
+        );
+      }
+    } catch (_) {
+      // Fallback : navigue directement avec l'ID du contact
+      if (mounted) {
+        setState(() => _isCreatingChat = false);
+        context.go(
+          '/chat/${contact.id}?name=${Uri.encodeComponent(contact.name)}',
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Nouveau message"),
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          "Nouveau message",
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => context.go('/home'),
         ),
       ),
-      body: _buildBody(),
+      body: _isCreatingChat
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: AppColors.primary),
+                  SizedBox(height: 16),
+                  Text(
+                    "Ouverture de la conversation...",
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            )
+          : _buildBody(),
     );
   }
 
   Widget _buildBody() {
-    // ── Chargement ─────────────────────────────────────────────
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
 
-    // ── Erreur de permission ────────────────────────────────────
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -99,16 +152,20 @@ class _ContactsScreenState extends State<ContactsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.contacts_outlined, size: 64, color: Colors.grey),
+              const Icon(
+                Icons.contacts_outlined,
+                size: 64,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _loadContacts, // Réessayer
+                onPressed: _loadContacts,
                 child: const Text("Réessayer"),
               ),
             ],
@@ -117,104 +174,110 @@ class _ContactsScreenState extends State<ContactsScreen> {
       );
     }
 
-    // ── Liste vide ──────────────────────────────────────────────
-    if (_contacts.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.person_search, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              "Aucun contact NovaX trouvé",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text(
-              "Invitez vos contacts à rejoindre NovaX !",
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // ── Liste des contacts ──────────────────────────────────────
-    return ListView.separated(
-      itemCount: _contacts.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-      itemBuilder: (context, index) {
-        final contact = _contacts[index];
-
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 4,
-          ),
-
-          // ── Avatar avec indicateur en ligne ──────────────────
-          leading: Stack(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.15),
-                child: Text(
-                  contact.name[0].toUpperCase(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
+    return Column(
+      children: [
+        // ── Barre de recherche ─────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            controller: _searchController,
+            style: const TextStyle(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: "Rechercher un contact...",
+              hintStyle: const TextStyle(color: AppColors.textSecondary),
+              prefixIcon: const Icon(
+                Icons.search,
+                color: AppColors.textSecondary,
               ),
-              // Point vert si en ligne
-              if (contact.isOnline)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      // Bordure blanche pour séparer du fond
-                      border: Border.all(
-                        color: Theme.of(context).scaffoldBackgroundColor,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          // ── Nom du contact ────────────────────────────────────
-          title: Text(
-            contact.name,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-
-          // ── Statut ────────────────────────────────────────────
-          subtitle: Text(
-            contact.isOnline ? "En ligne" : "Hors ligne",
-            style: TextStyle(
-              color: contact.isOnline ? Colors.green : Colors.grey,
-              fontSize: 12,
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
+        ),
 
-          // ── Tap → ouvre/crée la conversation ─────────────────
-          onTap: () {
-            // Navigue vers le chat avec ce contact
-            // L'ID du contact devient l'ID du chat (conversation privée)
-            context.go(
-              '/chat/${contact.id}?name=${Uri.encodeComponent(contact.name)}',
-            );
-          },
-        );
-      },
+        // ── Liste des contacts ─────────────────────────────────
+        Expanded(
+          child: _filtered.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Aucun contact trouvé",
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: _filtered.length,
+                  separatorBuilder: (_, __) => const Divider(
+                    height: 1,
+                    color: AppColors.divider,
+                    indent: 72,
+                  ),
+                  itemBuilder: (context, index) {
+                    final contact = _filtered[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      leading: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.15,
+                            ),
+                            child: Text(
+                              contact.name[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          if (contact.isOnline)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: AppColors.online,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppColors.background,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      title: Text(
+                        contact.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        contact.isOnline ? "En ligne" : "Hors ligne",
+                        style: TextStyle(
+                          color: contact.isOnline
+                              ? AppColors.online
+                              : AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onTap: () => _openChat(contact),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

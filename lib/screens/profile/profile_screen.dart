@@ -1,11 +1,5 @@
 // profile_screen.dart
-// Écran de profil — design Kamélia v1.0
-//
-// Polissage UI :
-//   - Avatar avec animation pop (elasticOut) à l'ouverture
-//   - Section header avec fond surface Kamélia
-//   - ListTiles avec icônes colorées
-//   - Bouton déconnexion rouge
+// Profil utilisateur avec modification du nom et suppression du compte.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,6 +29,14 @@ class ProfileScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => context.go('/home'),
         ),
+        // Bouton modifier le profil
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+            tooltip: "Modifier le profil",
+            onPressed: () => _showEditProfileDialog(context, user?.name ?? ''),
+          ),
+        ],
         elevation: 0,
       ),
       body: ListView(
@@ -46,19 +48,17 @@ class ProfileScreen extends StatelessWidget {
             color: AppColors.surface,
             child: Column(
               children: [
-                // Avatar avec animation pop à l'ouverture (elasticOut)
+                // Avatar avec animation pop
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
                   duration: const Duration(milliseconds: 700),
                   curve: Curves.elasticOut,
-                  builder: (context, value, child) {
-                    return Transform.scale(scale: value, child: child);
-                  },
+                  builder: (context, value, child) =>
+                      Transform.scale(scale: value, child: child),
                   child: CircleAvatar(
                     radius: 50,
                     backgroundColor: AppColors.primary,
                     child: Text(
-                      // Initiales : "Firmin SAMBIENI" → "FS"
                       user != null && user.name.isNotEmpty
                           ? user.name
                                 .split(' ')
@@ -75,8 +75,6 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Nom de l'utilisateur
                 Text(
                   user?.name.isNotEmpty == true ? user!.name : "Utilisateur",
                   style: const TextStyle(
@@ -86,8 +84,6 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-
-                // Email
                 Text(
                   user?.email ?? "",
                   style: const TextStyle(
@@ -95,19 +91,29 @@ class ProfileScreen extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
+                if (user?.phoneNumber != null &&
+                    user!.phoneNumber!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    user.phoneNumber!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
 
           const SizedBox(height: 8),
 
-          // ── Section Paramètres ─────────────────────────────────
+          // ── Paramètres ─────────────────────────────────────────
           Container(
             color: AppColors.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Label section
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: Text(
@@ -121,23 +127,14 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Toggle dark/light mode
+                // Toggle dark/light
                 BlocBuilder<ThemeCubit, ThemeMode>(
                   builder: (context, themeMode) {
                     final isDark = themeMode == ThemeMode.dark;
                     return ListTile(
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          isDark ? Icons.dark_mode : Icons.light_mode,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
+                      leading: _iconBox(
+                        isDark ? Icons.dark_mode : Icons.light_mode,
+                        AppColors.primary,
                       ),
                       title: const Text(
                         "Mode sombre",
@@ -164,19 +161,7 @@ class ProfileScreen extends StatelessWidget {
 
                 // Notifications
                 ListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.notifications_outlined,
-                      color: Colors.blue,
-                      size: 20,
-                    ),
-                  ),
+                  leading: _iconBox(Icons.notifications_outlined, Colors.blue),
                   title: const Text(
                     "Notifications",
                     style: TextStyle(color: AppColors.textPrimary),
@@ -192,28 +177,14 @@ class ProfileScreen extends StatelessWidget {
                     Icons.chevron_right,
                     color: AppColors.textSecondary,
                   ),
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Bientôt disponible")),
-                  ),
+                  onTap: () => _snack(context, "Bientôt disponible"),
                 ),
 
                 const Divider(height: 1, color: AppColors.divider, indent: 16),
 
                 // Confidentialité
                 ListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.lock_outline,
-                      color: Colors.green,
-                      size: 20,
-                    ),
-                  ),
+                  leading: _iconBox(Icons.lock_outline, Colors.green),
                   title: const Text(
                     "Confidentialité",
                     style: TextStyle(color: AppColors.textPrimary),
@@ -229,9 +200,7 @@ class ProfileScreen extends StatelessWidget {
                     Icons.chevron_right,
                     color: AppColors.textSecondary,
                   ),
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Bientôt disponible")),
-                  ),
+                  onTap: () => _snack(context, "Bientôt disponible"),
                 ),
               ],
             ),
@@ -239,37 +208,50 @@ class ProfileScreen extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // ── Bouton Déconnexion ─────────────────────────────────
+          // ── Actions du compte ──────────────────────────────────
           Container(
             color: AppColors.surface,
-            child: ListTile(
-              leading: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+            child: Column(
+              children: [
+                // Déconnexion
+                ListTile(
+                  leading: _iconBox(Icons.logout, AppColors.error),
+                  title: const Text(
+                    "Se déconnecter",
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () => _showLogoutDialog(context),
                 ),
-                child: const Icon(
-                  Icons.logout,
-                  color: AppColors.error,
-                  size: 20,
+
+                const Divider(height: 1, color: AppColors.divider, indent: 16),
+
+                // Supprimer le compte
+                ListTile(
+                  leading: _iconBox(Icons.delete_forever, Colors.red.shade900),
+                  title: Text(
+                    "Supprimer mon compte",
+                    style: TextStyle(
+                      color: Colors.red.shade900,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    "Action irréversible",
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  onTap: () => _showDeleteAccountDialog(context),
                 ),
-              ),
-              title: const Text(
-                "Se déconnecter",
-                style: TextStyle(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              onTap: () => _showLogoutDialog(context),
+              ],
             ),
           ),
 
           const SizedBox(height: 32),
-
-          // ── Version de l'app ───────────────────────────────────
           Center(
             child: Text(
               "NovaX v${AppConstants.appVersion}",
@@ -285,6 +267,95 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  // ── Dialogs ───────────────────────────────────────────────────
+
+  /// Dialog pour modifier le nom du profil.
+  void _showEditProfileDialog(BuildContext context, String currentName) {
+    final nameController = TextEditingController(text: currentName);
+    final phoneController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          "Modifier le profil",
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: "Nom complet",
+                labelStyle: const TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              style: const TextStyle(color: AppColors.textPrimary),
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: "Téléphone (optionnel)",
+                labelStyle: const TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              "Annuler",
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              final name = nameController.text.trim();
+              final phone = phoneController.text.trim();
+              if (name.isNotEmpty) {
+                try {
+                  await context.read<AuthCubit>().updateProfile(
+                    name: name,
+                    phoneNumber: phone.isEmpty ? null : phone,
+                  );
+                  if (context.mounted) {
+                    _snack(context, "Profil mis à jour ✓");
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    _snack(context, "Erreur : $e");
+                  }
+                }
+              }
+            },
+            child: const Text(
+              "Enregistrer",
+              style: TextStyle(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -295,7 +366,7 @@ class ProfileScreen extends StatelessWidget {
           style: TextStyle(color: AppColors.textPrimary),
         ),
         content: const Text(
-          "Es-tu sûr de vouloir te déconnecter de NovaX ?",
+          "Es-tu sûr de vouloir te déconnecter ?",
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
@@ -320,5 +391,64 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          "Supprimer le compte",
+          style: TextStyle(color: Colors.red.shade700),
+        ),
+        content: const Text(
+          "Cette action est irréversible.\nToutes tes données seront supprimées définitivement.",
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              "Annuler",
+              style: TextStyle(color: AppColors.primary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              try {
+                await context.read<AuthCubit>().deleteAccount();
+                if (context.mounted) context.go('/sign_in');
+              } catch (e) {
+                if (context.mounted) _snack(context, "Erreur : $e");
+              }
+            },
+            child: Text(
+              "Supprimer",
+              style: TextStyle(color: Colors.red.shade700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+
+  Widget _iconBox(IconData icon, Color color) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
+
+  void _snack(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 }

@@ -12,6 +12,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../cubits/login/login_cubit.dart';
 import '../../cubits/login/login_state.dart';
+import '../../cubits/login/auth_cubit.dart';
+import '../../models/user_model.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -49,7 +51,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // BlocListener réagit aux changements d'état sans reconstruire l'UI
       listener: (context, state) {
         if (state.loginStatus == LoginStatus.loaded) {
-          // Inscription réussie → va à la liste des conversations
+          // Notifie AuthCubit avec le vrai profil
+          context.read<AuthCubit>().setAuthenticated(
+            UserModel(
+              id: state.userId,
+              name: state.userName,
+              email: _emailController.text.trim(),
+            ),
+          );
           context.go('/home');
         } else if (state.loginStatus == LoginStatus.error) {
           // Affiche l'erreur dans une SnackBar

@@ -640,14 +640,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     // Étape 3 : Envoi via Socket.io (Michaël) si connecté
     if (SocketService.isConnected) {
-      // Socket connecté → envoi temps réel
-      SocketService.sendMessage(
-        // Crée un MessageModel minimal pour Socket.io
-        _buildSocketMessage(newMessage, currentUserId),
-      );
+      SocketService.sendMessage(_buildSocketMessage(newMessage, currentUserId));
     } else {
-      // Socket non connecté → simulation démo
       _simulateReply();
+    }
+
+    // Étape 4 : Sauvegarde via l'API Laravel (persistance serveur)
+    // Non bloquant — en arrière-plan
+    _saveMessageToApi(text, currentUserId);
+  }
+
+  /// Sauvegarde le message dans la base de données Laravel.
+  Future<void> _saveMessageToApi(String text, String senderId) async {
+    try {
+      final chatRepository = context.read<ChatRepository>();
+      await chatRepository.sendMessageToApi(
+        chatId: widget.chatId,
+        content: text,
+        type: 'text',
+      );
+    } catch (_) {
+      // Silencieux — Socket.io a déjà transmis le message
     }
   }
 
