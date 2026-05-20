@@ -253,16 +253,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  /// Appelé quand l'utilisateur appuie sur "Créer mon compte".
   void _onRegisterPressed() {
-    // Valide tous les champs du formulaire
     if (_formKey.currentState?.validate() ?? false) {
-      // Tous les champs sont valides → lance l'inscription
-      // TODO: Ajouter une méthode register() dans LoginCubit
-      // Pour l'instant on utilise login() comme placeholder
-      context.read<LoginCubit>().login(
-        _emailController.text,
-        _passwordController.text,
+      // Appelle la vraie méthode register() du LoginCubit
+      context.read<LoginCubit>().register(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        phoneNumber: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
       );
     }
   }

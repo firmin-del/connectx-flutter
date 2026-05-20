@@ -19,6 +19,7 @@ import '../../services/sentiment_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/socket_service.dart';
 import '../../cubits/login/auth_cubit.dart';
+import '../../repositories/chat_repository.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -47,39 +48,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isContactTyping = false;
   bool _isAnalyzing = false; // true pendant l'analyse de sentiment
 
-  // Messages affichés (démo + messages reçus via Socket.io)
-  final List<_ChatMessage> _messages = [
-    _ChatMessage(
-      text: "Salut ! Comment ça va ?",
-      isMe: false,
-      time: "14:30",
-      sentiment: SentimentScore.positive,
-    ),
-    _ChatMessage(
-      text: "Très bien merci, et toi ?",
-      isMe: true,
-      time: "14:31",
-      sentiment: SentimentScore.positive,
-    ),
-    _ChatMessage(
-      text: "Super ! Tu as vu le projet NovaX ?",
-      isMe: false,
-      time: "14:32",
-      sentiment: SentimentScore.positive,
-    ),
-    _ChatMessage(
-      text: "Oui, on avance bien 🚀",
-      isMe: true,
-      time: "14:33",
-      sentiment: SentimentScore.positive,
-    ),
-  ];
+  // Messages affichés — chargés depuis l'API + mis à jour via Socket.io
+  final List<_ChatMessage> _messages = [];
+  bool _isLoadingMessages = true;
 
   @override
   void initState() {
     super.initState();
     _setupTypingAnimation();
     _setupSocketCallbacks();
+    _loadMessagesFromApi();
   }
 
   void _setupTypingAnimation() {
@@ -97,7 +75,69 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ── Branchement Socket.io (Michaël) ──────────────────────────
+  // ── Chargement des messages depuis l'API ─────────────────────
+
+  /// Charge l'historique des messages depuis Laravel.
+  /// Fallback sur des messages de démo si l'API n'est pas disponible.
+  Future<void> _loadMessagesFromApi() async {
+    try {
+      final chatRepository = context.read<ChatRepository>();
+      final apiMessages = await chatRepository.fetchMessagesFromApi(
+        widget.chatId,
+      );
+      final currentUserId = context.read<AuthCubit>().state.user?.id ?? '';
+
+      if (mounted) {
+        final chatMessages = apiMessages.map((msg) {
+          return _ChatMessage(
+            id: msg.id,
+            text: msg.content,
+            isMe: msg.senderId == currentUserId,
+            time: _formatTime(msg.timestamp),
+            sentiment: SentimentScore.neutral,
+          );
+        }).toList();
+
+        setState(() {
+          _messages.addAll(chatMessages);
+          _isLoadingMessages = false;
+        });
+      }
+    } catch (_) {
+      // Fallback : messages de démo si API indisponible
+      if (mounted) {
+        setState(() {
+          _messages.addAll([
+            _ChatMessage(
+              text: "Salut ! Comment ça va ?",
+              isMe: false,
+              time: "14:30",
+              sentiment: SentimentScore.positive,
+            ),
+            _ChatMessage(
+              text: "Très bien merci, et toi ?",
+              isMe: true,
+              time: "14:31",
+              sentiment: SentimentScore.positive,
+            ),
+            _ChatMessage(
+              text: "Super ! Tu as vu le projet NovaX ?",
+              isMe: false,
+              time: "14:32",
+              sentiment: SentimentScore.positive,
+            ),
+            _ChatMessage(
+              text: "Oui, on avance bien 🚀",
+              isMe: true,
+              time: "14:33",
+              sentiment: SentimentScore.positive,
+            ),
+          ]);
+          _isLoadingMessages = false;
+        });
+      }
+    }
+  }
 
   /// Configure les callbacks Socket.io pour recevoir les messages en temps réel.
   /// Si le socket n'est pas connecté → mode démo automatique.
@@ -276,6 +316,22 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // ── Liste des messages ────────────────────────────────────────
 
   Widget _buildMessageList() {
+    // Affiche un loader pendant le chargement initial depuis l'API
+    if (_isLoadingMessages) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (_messages.isEmpty) {
+      return const Center(
+        child: Text(
+          "Aucun message — commencez la conversation !",
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
